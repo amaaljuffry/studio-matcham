@@ -13,7 +13,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  // DialogTrigger, // No longer needed for header buttons
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -30,16 +30,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
-import { Leaf, XCircle, MapIcon, Terminal, PlusCircle, Filter as FilterIcon, ChevronLeft, ChevronRight, Info, ChevronDown } from "lucide-react";
+import { Leaf, XCircle, MapIcon, Terminal, PlusCircle, Filter as FilterIcon, ChevronLeft, ChevronRight, Info, ChevronDown, Menu } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { CafeMap } from "@/components/cafe-map";
 
 
-function HomePage() {
+export default function HomePage() {
   const [allCafes] = useState<Cafe[]>(mockCafes);
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string | undefined>(undefined);
@@ -48,15 +56,19 @@ function HomePage() {
   
   // Filter states
   const [selectedStateFilter, setSelectedStateFilter] = useState<string>("All");
-  const [selectedHalalFilter, setSelectedHalalFilter] = useState<string>("All"); // HalalStatus | "All"
+  const [selectedHalalFilter, setSelectedHalalFilter] = useState<string>("All"); 
   const [selectedTagsFilter, setSelectedTagsFilter] = useState<string[]>([]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const cafesPerPage = 10;
 
   useEffect(() => {
-    // Only run on client
-    setGoogleMapsApiKey(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
+    const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (key) {
+      setGoogleMapsApiKey(key);
+    } else {
+      console.warn("Google Maps API Key is missing. Please set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in your .env file.");
+    }
   }, []);
 
   const filteredCafes = useMemo(() => {
@@ -78,7 +90,6 @@ function HomePage() {
     return cafes;
   }, [allCafes, selectedStateFilter, selectedHalalFilter, selectedTagsFilter]);
   
-  // Reset to first page if filters or selectedCafe (cleared) changes
   useEffect(() => {
     if (selectedCafe && !filteredCafes.find(c => c.id === selectedCafe.id)) {
       setSelectedCafe(null); 
@@ -89,12 +100,14 @@ function HomePage() {
 
   const handleCafeSelect = useCallback((cafe: Cafe | null) => {
     setSelectedCafe(cafe);
+    if (cafe === null) { 
+      setCurrentPage(1);
+    }
   }, []);
   
   const initialMapCenter = useMemo(() => ({ lat: 3.1390, lng: 101.6869 }), []); 
   const initialMapZoom = 10;
 
-  // Pagination logic
   const indexOfLastCafe = currentPage * cafesPerPage;
   const indexOfFirstCafe = indexOfLastCafe - cafesPerPage;
   const currentCafesToDisplay = useMemo(() => {
@@ -130,6 +143,42 @@ function HomePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
+      <Dialog open={isMapDialogOpen} onOpenChange={setIsMapDialogOpen}>
+        <DialogContent className="p-0 sm:max-w-2xl md:max-w-4xl lg:max-w-5xl w-[90vw] h-[80vh] overflow-hidden">
+          <DialogHeader className="p-4 border-b sticky top-0 bg-background z-10">
+            <DialogTitle>Matcha Cafe Map</DialogTitle>
+          </DialogHeader>
+          <div className="h-[calc(100%-57px)]">
+          {googleMapsApiKey ? (
+            <CafeMap
+              apiKey={googleMapsApiKey}
+              cafes={allCafes} 
+              onMarkerClick={(cafe) => {
+                handleCafeSelect(cafe);
+                setIsMapDialogOpen(false); 
+              }}
+              selectedCafe={selectedCafe}
+              initialCenter={initialMapCenter}
+              initialZoom={initialMapZoom}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full bg-muted text-destructive-foreground p-4">
+                Map feature is currently under review or API key is missing. Check back soon!
+            </div>
+          )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isSubmissionDialogOpen} onOpenChange={setIsSubmissionDialogOpen}>
+        <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl">
+           <DialogHeader className="pb-3">
+            <DialogTitle>Submit a New Matcha Cafe</DialogTitle>
+          </DialogHeader>
+          <CafeSubmissionForm onFormSubmit={() => setIsSubmissionDialogOpen(false)} />
+        </DialogContent>
+      </Dialog>
+
       <header className="p-4 border-b border-border flex justify-between items-center sticky top-0 bg-background/80 backdrop-blur-sm z-20">
         <div className="flex items-center gap-2">
            {selectedCafe ? (
@@ -152,62 +201,60 @@ function HomePage() {
         </div>
         
         <div className="flex items-center gap-2">
-          <Dialog open={isMapDialogOpen} onOpenChange={setIsMapDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="shadow-sm">
-                <MapIcon className="w-4 h-4 mr-2" />
-                View Map
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="p-0 sm:max-w-2xl md:max-w-4xl lg:max-w-5xl w-[90vw] h-[80vh] overflow-hidden">
-              <DialogHeader className="p-4 border-b sticky top-0 bg-background z-10">
-                <DialogTitle>Matcha Cafe Map</DialogTitle>
-              </DialogHeader>
-              <div className="h-[calc(100%-57px)]">
-              {googleMapsApiKey ? (
-                <p className="text-center p-4">Map component placeholder. CafeMap would go here.</p>
-                // Actual map component is commented out as per previous requests, but API key logic retained
-                // <CafeMap
-                //   apiKey={googleMapsApiKey}
-                //   cafes={allCafes} // Consider passing filteredCafes if you want map markers to update
-                //   onMarkerClick={(cafe) => {
-                //     handleCafeSelect(cafe);
-                //     setIsMapDialogOpen(false); 
-                //   }}
-                //   selectedCafe={selectedCafe}
-                //   initialCenter={initialMapCenter}
-                //   initialZoom={initialMapZoom}
-                // />
-              ) : (
-                <div className="flex items-center justify-center h-full bg-muted text-destructive-foreground p-4">
-                    Map feature is currently under review or API key is missing. Check back soon!
-                </div>
-              )}
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          <Dialog open={isSubmissionDialogOpen} onOpenChange={setIsSubmissionDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="shadow-sm">
-                <PlusCircle className="w-4 h-4 mr-2" />
-                Submit Cafe
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl">
-               <DialogHeader className="pb-3">
-                <DialogTitle>Submit a New Matcha Cafe</DialogTitle>
-              </DialogHeader>
-              <CafeSubmissionForm onFormSubmit={() => setIsSubmissionDialogOpen(false)} />
-            </DialogContent>
-          </Dialog>
-
-          <Link href="/about" passHref>
-            <Button variant="outline" size="sm" className="shadow-sm">
-              <Info className="w-4 h-4 mr-2" />
-              About
+          {/* Desktop Buttons */}
+          <div className="hidden md:flex items-center gap-2">
+            <Button variant="outline" size="sm" className="shadow-sm" onClick={() => setIsMapDialogOpen(true)}>
+              <MapIcon className="w-4 h-4 mr-2" />
+              View Map
             </Button>
-          </Link>
+
+            <Button variant="outline" size="sm" className="shadow-sm" onClick={() => setIsSubmissionDialogOpen(true)}>
+              <PlusCircle className="w-4 h-4 mr-2" />
+              Submit Cafe
+            </Button>
+
+            <Link href="/about" passHref>
+              <Button variant="outline" size="sm" className="shadow-sm">
+                <Info className="w-4 h-4 mr-2" />
+                About
+              </Button>
+            </Link>
+          </div>
+
+          {/* Mobile Hamburger Menu */}
+          <div className="md:hidden">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon" className="shadow-sm">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Open menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right">
+                <SheetHeader>
+                  <SheetTitle>Menu</SheetTitle>
+                </SheetHeader>
+                <nav className="flex flex-col space-y-3 mt-6">
+                  <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsMapDialogOpen(true); }}>
+                    <MapIcon className="w-4 h-4 mr-2" />
+                    View Map
+                  </Button>
+                  <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsSubmissionDialogOpen(true); }}>
+                    <PlusCircle className="w-4 h-4 mr-2" />
+                    Submit Cafe
+                  </Button>
+                  <Link href="/about" passHref legacyBehavior>
+                    <Button variant="ghost" className="w-full justify-start" asChild>
+                       <a>
+                        <Info className="w-4 h-4 mr-2" />
+                        About
+                       </a>
+                    </Button>
+                  </Link>
+                </nav>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
       </header>
       
@@ -216,7 +263,7 @@ function HomePage() {
           <Terminal className="h-4 w-4" />
           <AlertTitle>Configuration Error</AlertTitle>
           <AlertDescription>
-            Google Maps API Key is missing or invalid. Please set a valid <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> in your <code>.env</code> file and ensure the Maps JavaScript API is enabled in your Google Cloud Console. The map feature may not be functional.
+            Google Maps API Key is missing or invalid. Please set a valid <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> in your <code>.env</code> file and ensure the Maps JavaScript API is enabled (and billing active) in your Google Cloud Console. The map feature may not be functional.
           </AlertDescription>
         </Alert>
       )}
@@ -388,4 +435,3 @@ function HomePage() {
   );
 }
 
-export default HomePage;
