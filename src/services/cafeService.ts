@@ -28,13 +28,11 @@ export function generateCafeId(name: string): string {
 
 export async function getCafes(): Promise<Cafe[]> {
   try {
-    // Order by name for consistent listing, or perhaps by approvedAt if available
     const q = query(cafesCollectionRef, orderBy("name"));
     const querySnapshot = await getDocs(q);
     const cafes = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
-      // Convert Firestore Timestamps to Date objects if they exist
       submittedAt: doc.data().submittedAt instanceof Timestamp ? doc.data().submittedAt.toDate() : undefined,
       approvedAt: doc.data().approvedAt instanceof Timestamp ? doc.data().approvedAt.toDate() : undefined,
     } as Cafe));
@@ -61,20 +59,31 @@ export async function getPendingCafes(): Promise<Cafe[]> {
   }
 }
 
-export async function addCafeToPending(cafeId: string, cafeData: Omit<Cafe, 'id' | 'approvedAt' | 'submittedAt'>, logoFile?: File | null): Promise<string | null> {
+export async function addCafeToPending(cafeId: string, cafeData: Omit<Cafe, 'id' | 'approvedAt' | 'submittedAt' | 'logoLink'>, logoFile?: File | null): Promise<string | null> {
   try {
     let logoUrl: string | undefined = undefined;
-    if (logoFile) {
+    
+    // Diagnostic log for storage bucket
+    if (storage && storage.app.options.storageBucket) {
+      console.log('Attempting to upload to Firebase Storage. Configured bucket:', storage.app.options.storageBucket);
+    } else {
+      console.error('Firebase Storage not configured correctly or bucket name is missing in config.');
+      // Potentially throw an error here or handle as appropriate if storage is critical
+    }
+
+    if (logoFile && storage) { // Ensure storage is initialized
       const filePath = `logos/${cafeId}/${logoFile.name}`;
-      const logoStorageRef = storageRef(storage, filePath);
-      const uploadTask = await uploadBytesResumable(logoStorageRef, logoFile);
+      const logoStorageRefInstance = storageRef(storage, filePath);
+      const uploadTask = await uploadBytesResumable(logoStorageRefInstance, logoFile);
       logoUrl = await getDownloadURL(uploadTask.ref);
+      console.log('Logo uploaded successfully. URL:', logoUrl);
     }
 
     const dataToSave: Partial<Cafe> = {
       ...cafeData,
-      submittedAt: serverTimestamp() as Timestamp, // Firestore will convert this
+      submittedAt: serverTimestamp() as Timestamp,
     };
+
     if (logoUrl) {
       dataToSave.logoLink = logoUrl;
     }
@@ -83,7 +92,19 @@ export async function addCafeToPending(cafeId: string, cafeData: Omit<Cafe, 'id'
     console.log("Pending cafe document written with ID: ", cafeId);
     return cafeId;
   } catch (error) {
-    console.error("Error adding pending cafe document: ", error);
+    console.error("Error adding pending cafe document and/or uploading logo: ", error);
+    if (error instanceof Error && 'code' in error) {
+      console.error('Firebase Error Code:', (error as any).code);
+      console.error('Firebase Error Message:', (error as any).message);
+    }
+    // If logo upload succeeded but Firestore failed, you might want to delete the orphaned logo
+    if (logoUrl && !(error instanceof Error && (error as any).code?.includes('storage'))) {
+        // This means storage upload might have worked but setDoc failed.
+        // Consider deleting the logo if the DB write fails to prevent orphans.
+        console.warn("Firestore write failed after logo upload. Consider deleting the orphaned logo:", logoUrl);
+        // const logoToDeleteRef = storageRef(storage, logoUrl);
+        // await deleteObject(logoToDeleteRef).catch(delErr => console.error("Failed to delete orphaned logo:", delErr));
+    }
     return null;
   }
 }
@@ -94,9 +115,8 @@ export async function approveCafe(pendingCafe: Cafe): Promise<boolean> {
     return false;
   }
   try {
-    // Prepare data for the 'cafes' collection
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id, submittedAt, ...cafeDataForApproval } = pendingCafe; // Destructure to get data without id and submittedAt
+    const { id, submittedAt, ...cafeDataForApproval } = pendingCafe; 
 
     const approvedData: Omit<Cafe, 'id' | 'submittedAt'> & { approvedAt: Timestamp } = {
       ...cafeDataForApproval,
@@ -116,13 +136,12 @@ export async function approveCafe(pendingCafe: Cafe): Promise<boolean> {
 export async function rejectCafe(pendingCafeId: string, logoLink?: string): Promise<boolean> {
   try {
     // If there's a logo, delete it from storage
-    if (logoLink) {
+    if (logoLink && typeof logoLink === 'string' && logoLink.trim() !== '' && storage) { // Ensure storage is initialized
       try {
-        const logoStorageRef = storageRef(storage, logoLink); // logoLink is the full URL
-        await deleteObject(logoStorageRef);
+        const logoStorageRefInstance = storageRef(storage, logoLink); 
+        await deleteObject(logoStorageRefInstance);
         console.log(`Logo for ${pendingCafeId} deleted from storage.`);
       } catch (storageError) {
-        // Log error but continue with deleting the Firestore document
         console.error(`Error deleting logo for ${pendingCafeId} from storage: `, storageError);
          if ((storageError as any).code === 'storage/object-not-found') {
             console.warn('Logo object not found, proceeding with Firestore document deletion.');
