@@ -8,73 +8,91 @@ body {
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
+    --background: 60 56% 92%; /* Off-white #F5F5DC */
+    --foreground: 240 10% 3.9%;
+
+    --card: 60 56% 90%; /* Slightly different from background for definition */
+    --card-foreground: 240 10% 3.9%;
+
+    --popover: 60 56% 90%;
+    --popover-foreground: 240 10% 3.9%;
+
+    --primary: 122 39% 44%; /* Deep matcha green #43A047 */
+    --primary-foreground: 60 93% 98%; /* Light color for contrast */
+
+    --secondary: 122 25% 70%; /* Lighter shade of matcha green */
+    --secondary-foreground: 240 10% 3.9%;
+
+    --muted: 60 30% 85%; /* Lighter, desaturated version of background */
+    --muted-foreground: 240 5% 45%; /* Darker muted text */
+
+    --accent: 42 92% 38%; /* Muted gold #B8860B */
+    --accent-foreground: 60 93% 98%; /* Light color for contrast */
+
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+
+    --border: 60 30% 82%; /* Subtle border, related to background/muted */
+    --input: 60 40% 88%; /* Input background, slightly different from main background */
+    --ring: 122 39% 44%; /* Primary color for ring */
+
+    --chart-1: 122 39% 44%;
+    --chart-2: 42 92% 38%;
+    --chart-3: 122 25% 60%;
+    --chart-4: 42 70% 50%;
+    --chart-5: 120 20% 50%;
     --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Minimalist Sidebar Theme */
+    --sidebar-background: 60 40% 88%; /* Slightly darker off-white / very light muted green */
+    --sidebar-foreground: 122 30% 25%; /* Dark matcha green for text */
+    --sidebar-primary: 122 39% 44%; /* Deep matcha green for active/primary elements */
+    --sidebar-primary-foreground: 60 93% 98%; /* Light text on primary */
+    --sidebar-accent: 42 92% 38%; /* Muted gold for accents */
+    --sidebar-accent-foreground: 60 93% 98%; /* Light text on accent */
+    --sidebar-border: 60 30% 80%; /* Subtle border for sidebar elements */
+    --sidebar-ring: 122 39% 44%; /* Primary color for ring */
   }
+
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    /* Dark Theme - Keeping it consistent with the light theme's intent */
+    --background: 120 5% 10%; /* Dark, slightly green-tinted background */
+    --foreground: 60 30% 90%; /* Light off-white text */
+
+    --card: 120 5% 15%;
+    --card-foreground: 60 30% 90%;
+
+    --popover: 120 5% 15%;
+    --popover-foreground: 60 30% 90%;
+
+    --primary: 122 39% 50%; /* Brighter matcha green for dark mode */
+    --primary-foreground: 120 10% 5%; /* Dark text on primary */
+
+    --secondary: 122 25% 30%; /* Darker, muted matcha */
+    --secondary-foreground: 60 30% 90%;
+
+    --muted: 120 5% 20%;
+    --muted-foreground: 60 20% 65%;
+
+    --accent: 42 80% 50%; /* Brighter gold for dark mode */
+    --accent-foreground: 120 10% 5%; /* Dark text on accent */
+
+    --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --border: 120 5% 25%;
+    --input: 120 5% 22%;
+    --ring: 122 39% 50%;
+
+    /* Dark Sidebar Theme */
+    --sidebar-background: 120 5% 12%; /* Very dark base for sidebar */
+    --sidebar-foreground: 60 40% 80%; /* Lighter text */
+    --sidebar-primary: 122 39% 50%; /* Matcha green for active items */
+    --sidebar-primary-foreground: 120 10% 5%; /* Dark text on primary */
+    --sidebar-accent: 42 80% 50%; /* Gold for accents */
+    --sidebar-accent-foreground: 120 10% 5%; /* Dark text on accent */
+    --sidebar-border: 120 5% 18%;
+    --sidebar-ring: 122 39% 50%;
   }
 }
 
