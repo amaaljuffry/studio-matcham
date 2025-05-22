@@ -73,6 +73,30 @@ function HomePage() {
   const initialMapCenter = useMemo(() => ({ lat: 3.1390, lng: 101.6869 }), []); // Kuala Lumpur
   const initialMapZoom = 10;
 
+  const renderCafeListItem = (cafe: Cafe) => (
+    <Card
+      key={cafe.id}
+      onClick={() => handleCafeSelect(cafe)}
+      className={`cursor-pointer group overflow-hidden shadow-md hover:shadow-xl transition-all duration-200 ease-in-out rounded-lg bg-card hover:bg-card/90 ${selectedCafe?.id === cafe.id ? "ring-2 ring-primary" : ""}`}
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCafeSelect(cafe);}}
+      role="button"
+      aria-label={`View details for ${cafe.name}`}
+      aria-pressed={selectedCafe?.id === cafe.id}
+    >
+      <CardContent className="p-3">
+        <h3 className="font-semibold text-md mb-1 text-card-foreground truncate">{cafe.name}</h3>
+        <p className="text-xs text-muted-foreground truncate mb-1">{cafe.address}</p>
+        <div className="flex items-center justify-between text-xs">
+          <Badge variant="outline" className="border-accent text-accent bg-accent/10 px-1.5 py-0.5">
+            {cafe.rating} ★
+          </Badge>
+          <span className="text-muted-foreground">{cafe.state}</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <TooltipProvider>
       <div className="flex h-screen overflow-hidden">
@@ -87,58 +111,84 @@ function HomePage() {
               <span className="text-2xl font-semibold text-primary group-data-[collapsible=icon]:hidden">MatchaMe</span>
             </div>
           </SidebarHeader>
-          <SidebarContent className="p-0">
-            <ScrollArea className="h-full">
-              <div className="p-4 space-y-6">
-                <div>
-                  <h2 className="text-lg font-semibold mb-3 flex items-center text-sidebar-foreground group-data-[collapsible=icon]:hidden">
-                    <Filter className="w-5 h-5 mr-2" />
-                    Filters
-                  </h2>
-                  <div className="group-data-[collapsible=icon]:hidden">
-                    <CafeFilterOptions 
-                      onRatingFilterChange={handleRatingChange} 
-                      currentMinRating={minRating}
-                      onStateFilterChange={handleStateChange}
-                      currentSelectedState={selectedState}
-                      availableStates={malaysianStates}
-                    />
-                  </div>
-                  <div className="hidden group-data-[collapsible=icon]:flex justify-center py-2">
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-sidebar-foreground w-8 h-8">
-                            <Filter className="w-6 h-6" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" align="center">Filters</TooltipContent>
-                    </Tooltip>
-                  </div>
+          <SidebarContent className="p-0 flex flex-col">
+            <div className="p-4 space-y-6">
+              <div>
+                <h2 className="text-lg font-semibold mb-3 flex items-center text-sidebar-foreground group-data-[collapsible=icon]:hidden">
+                  <Filter className="w-5 h-5 mr-2" />
+                  Filters
+                </h2>
+                <div className="group-data-[collapsible=icon]:hidden">
+                  <CafeFilterOptions 
+                    onRatingFilterChange={handleRatingChange} 
+                    currentMinRating={minRating}
+                    onStateFilterChange={handleStateChange}
+                    currentSelectedState={selectedState}
+                    availableStates={malaysianStates}
+                  />
                 </div>
-
-                <Separator className="my-4 group-data-[collapsible=icon]:hidden bg-sidebar-border" />
-
-                <div>
-                  <h2 className="text-lg font-semibold mb-3 flex items-center text-sidebar-foreground group-data-[collapsible=icon]:hidden">
-                    <BotIcon className="w-5 h-5 mr-2" />
-                    Matcha Concierge
-                  </h2>
-                  <div className="group-data-[collapsible=icon]:hidden">
-                    <AiConciergeForm cafes={filteredCafes} />
-                  </div>
-                  <div className="hidden group-data-[collapsible=icon]:flex justify-center py-2">
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-sidebar-foreground w-8 h-8">
-                              <BotIcon className="w-6 h-6" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" align="center">AI Concierge</TooltipContent>
-                      </Tooltip>
-                  </div>
+                <div className="hidden group-data-[collapsible=icon]:flex justify-center py-2">
+                  <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-sidebar-foreground w-8 h-8">
+                          <Filter className="w-6 h-6" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" align="center">Filters</TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
-            </ScrollArea>
+
+              <Separator className="my-4 group-data-[collapsible=icon]:hidden bg-sidebar-border" />
+
+              <div>
+                <h2 className="text-lg font-semibold mb-3 flex items-center text-sidebar-foreground group-data-[collapsible=icon]:hidden">
+                  <MapPin className="w-5 h-5 mr-2" />
+                  Cafes
+                </h2>
+                <div className="group-data-[collapsible=icon]:hidden h-64"> {/* Fixed height for scrollable list */}
+                  <ScrollArea className="h-full">
+                    <div className="space-y-2 pr-2">
+                      {filteredCafes.length > 0 ? filteredCafes.map(renderCafeListItem) : (
+                        <p className="text-sm text-muted-foreground">No cafes match your filters.</p>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+                <div className="hidden group-data-[collapsible=icon]:flex justify-center py-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="text-sidebar-foreground w-8 h-8">
+                        <ListIcon className="w-6 h-6" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" align="center">Cafe List</TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+
+              <Separator className="my-4 group-data-[collapsible=icon]:hidden bg-sidebar-border" />
+              
+              <div>
+                <h2 className="text-lg font-semibold mb-3 flex items-center text-sidebar-foreground group-data-[collapsible=icon]:hidden">
+                  <BotIcon className="w-5 h-5 mr-2" />
+                  Matcha Concierge
+                </h2>
+                <div className="group-data-[collapsible=icon]:hidden">
+                  <AiConciergeForm cafes={filteredCafes} />
+                </div>
+                <div className="hidden group-data-[collapsible=icon]:flex justify-center py-2">
+                  <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-sidebar-foreground w-8 h-8">
+                            <BotIcon className="w-6 h-6" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" align="center">AI Concierge</TooltipContent>
+                    </Tooltip>
+                </div>
+              </div>
+            </div>
           </SidebarContent>
         </Sidebar>
 
@@ -172,7 +222,7 @@ function HomePage() {
               <Terminal className="h-4 w-4" />
               <AlertTitle>Configuration Error</AlertTitle>
               <AlertDescription>
-                Google Maps API Key is missing. Please set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in your .env file. The map will not be functional.
+                Google Maps API Key is missing or invalid. Please set a valid <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> in your <code>.env</code> file and ensure the Maps JavaScript API is enabled in your Google Cloud Console. The map may not be functional.
               </AlertDescription>
             </Alert>
           )}
@@ -191,7 +241,7 @@ function HomePage() {
               )}
               {!googleMapsApiKey && (
                 <div className="flex items-center justify-center h-full bg-muted text-destructive-foreground p-4">
-                    Map disabled due to missing API key.
+                    Map disabled due to missing or invalid API key.
                 </div>
               )}
             </div>
@@ -215,11 +265,12 @@ function HomePage() {
                           <Card
                             key={cafe.id}
                             onClick={() => handleCafeSelect(cafe)}
-                            className={`cursor-pointer group overflow-hidden shadow-md hover:shadow-xl transition-all duration-200 ease-in-out rounded-lg bg-card hover:bg-card/90`}
+                            className={`cursor-pointer group overflow-hidden shadow-md hover:shadow-xl transition-all duration-200 ease-in-out rounded-lg bg-card hover:bg-card/90 ${selectedCafe?.id === cafe.id ? "ring-2 ring-primary" : ""}`}
                             tabIndex={0}
                             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCafeSelect(cafe);}}
                             role="button"
                             aria-label={`View details for ${cafe.name}`}
+                            aria-pressed={selectedCafe?.id === cafe.id}
                           >
                             <div className="relative w-full h-32 md:h-40 overflow-hidden">
                               <Image
