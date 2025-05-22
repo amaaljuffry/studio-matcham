@@ -44,7 +44,7 @@ function HomePage() {
       setSelectedCafe(null); 
     }
     setCurrentPage(1); 
-  }, [allCafes, selectedCafe === null]); // Added selectedCafe === null condition
+  }, [allCafes, selectedCafe === null]);
 
 
   const handleCafeSelect = useCallback((cafe: Cafe | null) => {
@@ -90,7 +90,7 @@ function HomePage() {
           ) : (
             <div className="flex items-center gap-2">
                 <Leaf className="h-7 w-7 text-primary" />
-                <span className="text-2xl font-semibold text-primary">MatchaMe</span>
+                <span className="text-2xl font-semibold text-primary">Matcham</span>
             </div>
           )}
         </div>

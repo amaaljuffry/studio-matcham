@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 // Removed Inter font setup
 
 export const metadata: Metadata = {
-  title: 'MatchaMe',
+  title: 'Matcham',
   description: 'Find the best matcha cafes in Malaysia.',
 };
 
