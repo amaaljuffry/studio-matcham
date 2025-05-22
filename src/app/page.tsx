@@ -8,6 +8,7 @@ import { CafeFilterOptions } from "@/components/cafe-filter-options";
 import { CafeDetailsCard } from "@/components/cafe-details-card";
 import { AiConciergeForm } from "@/components/ai-concierge-form";
 import { CafeMap } from "@/components/cafe-map";
+import { CafeSubmissionForm } from "@/components/CafeSubmissionForm";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -30,7 +31,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Leaf, Filter, Bot as BotIcon, XCircle, MapPin, StarIcon, MapIcon, ListIcon, Terminal } from "lucide-react";
+import { Leaf, Filter, Bot as BotIcon, XCircle, MapPin, MapIcon, ListIcon, Terminal, PlusCircle } from "lucide-react";
 import Image from "next/image";
 
 function HomePage() {
@@ -41,8 +42,9 @@ function HomePage() {
   const [selectedState, setSelectedState] = useState<string>("All");
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string | undefined>(undefined);
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
+  const [isSubmissionDialogOpen, setIsSubmissionDialogOpen] = useState(false);
 
-  const { toggleSidebar, isMobile, state: sidebarState, openMobile: mobileSidebarOpen } = useSidebar();
+  const { toggleSidebar, isMobile, state: sidebarState } = useSidebar();
 
   useEffect(() => {
     // Only run on client
@@ -60,25 +62,25 @@ function HomePage() {
     setFilteredCafes(result);
 
     if (selectedCafe && !result.find(c => c.id === selectedCafe.id)) {
-      setSelectedCafe(null); // Deselect if filters hide it
+      setSelectedCafe(null); 
     }
   }, [minRating, selectedState, allCafes, selectedCafe]);
 
   const handleRatingChange = useCallback((newRating: number) => {
     setMinRating(newRating);
-    setSelectedCafe(null); // Reset selection when filters change
+    setSelectedCafe(null);
   }, []);
 
   const handleStateChange = useCallback((newState: string) => {
     setSelectedState(newState);
-    setSelectedCafe(null); // Reset selection when filters change
+    setSelectedCafe(null);
   }, []);
 
   const handleCafeSelect = useCallback((cafe: Cafe | null) => {
     setSelectedCafe(cafe);
   }, []);
   
-  const initialMapCenter = useMemo(() => ({ lat: 3.1390, lng: 101.6869 }), []); // Kuala Lumpur
+  const initialMapCenter = useMemo(() => ({ lat: 3.1390, lng: 101.6869 }), []); 
   const initialMapZoom = 10;
 
   const renderCafeListItem = (cafe: Cafe) => (
@@ -154,7 +156,7 @@ function HomePage() {
                   <MapPin className="w-5 h-5 mr-2" />
                   Cafes
                 </h2>
-                <div className="group-data-[collapsible=icon]:hidden h-64"> {/* Fixed height for scrollable list */}
+                <div className="group-data-[collapsible=icon]:hidden h-64">
                   <ScrollArea className="h-full">
                     <div className="space-y-2 pr-2">
                       {filteredCafes.length > 0 ? filteredCafes.map(renderCafeListItem) : (
@@ -232,14 +234,14 @@ function HomePage() {
                   <DialogHeader className="p-4 border-b sticky top-0 bg-background z-10">
                     <DialogTitle>Matcha Cafe Map</DialogTitle>
                   </DialogHeader>
-                  <div className="h-[calc(100%-57px)]"> {/* Adjust height based on header height */}
+                  <div className="h-[calc(100%-57px)]">
                   {googleMapsApiKey ? (
                     <CafeMap
                       apiKey={googleMapsApiKey}
                       cafes={filteredCafes}
                       onMarkerClick={(cafe) => {
                         handleCafeSelect(cafe);
-                        // setIsMapDialogOpen(false); // Optional: close dialog on marker click
+                        // setIsMapDialogOpen(false); 
                       }}
                       selectedCafe={selectedCafe}
                       initialCenter={initialMapCenter}
@@ -251,6 +253,19 @@ function HomePage() {
                     </div>
                   )}
                   </div>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={isSubmissionDialogOpen} onOpenChange={setIsSubmissionDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="shadow-sm">
+                    <PlusCircle className="w-4 h-4 mr-2" />
+                    Submit Cafe
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl">
+                  {/* No DialogHeader needed as CafeSubmissionForm has its own */}
+                  <CafeSubmissionForm onFormSubmit={() => setIsSubmissionDialogOpen(false)} />
                 </DialogContent>
               </Dialog>
 
@@ -281,7 +296,7 @@ function HomePage() {
                     {filteredCafes.length} Matcha Cafes Found
                   </h1>
                   <p className="text-muted-foreground mb-4 text-sm">
-                    {selectedState === "All" ? "Across Malaysia" : `In ${selectedState}`}{minRating > 0 ? ` with ${minRating}+ stars rating.` : "."} Explore below or click "View Map".
+                    {selectedState === "All" ? "Across Malaysia" : `In ${selectedState}`}{minRating > 0 ? ` with ${minRating}+ stars rating.` : "."} Explore below, click "View Map", or submit a new cafe.
                   </p>
                   
                   {filteredCafes.length > 0 ? (
@@ -349,5 +364,3 @@ const HomePageWithSidebar: React.FC = () => {
 };
 
 export default HomePageWithSidebar;
-
-    

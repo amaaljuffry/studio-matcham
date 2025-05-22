@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useState } from 'react';
-import { useForm, SubmitHandler } from 'react-hook-form';
+import React from 'react'; // Removed useState as it's not used directly
+import { useForm, SubmitHandler, Controller } from 'react-hook-form'; // Added Controller
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { malaysianStates } from '@/data/cafes'; // Assuming states are here
+import { malaysianStates } from '@/data/cafes';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
@@ -23,7 +23,7 @@ const cafeSubmissionSchema = z.object({
   longitude: z.coerce.number().min(-180).max(180),
   openingHours: z.string().min(5, { message: "Opening hours seem too short." }),
   menuLink: z.string().url({ message: "Please enter a valid URL for the menu." }).optional().or(z.literal('')),
-  image: z.string().url({ message: "Please enter a valid URL for the image." }).optional().or(z.literal('')),
+  image: z.string().url({ message: "Please enter a valid URL for the image." }).optional().or(z.literal('')), // Consider making this a file upload in future
   tags: z.string().optional(), // Comma-separated
   websiteLink: z.string().url({ message: "Please enter a valid URL for the website." }).optional().or(z.literal('')),
   instagramLink: z.string().url({ message: "Please enter a valid URL for Instagram." }).optional().or(z.literal('')),
@@ -32,7 +32,11 @@ const cafeSubmissionSchema = z.object({
 
 type CafeSubmissionFormData = z.infer<typeof cafeSubmissionSchema>;
 
-export function CafeSubmissionForm() {
+interface CafeSubmissionFormProps {
+  onFormSubmit?: () => void; // Optional callback to close dialog
+}
+
+export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
   const { register, handleSubmit, control, formState: { errors, isSubmitting }, reset } = useForm<CafeSubmissionFormData>({
     resolver: zodResolver(cafeSubmissionSchema),
   });
@@ -46,17 +50,20 @@ export function CafeSubmissionForm() {
       title: "Submission Received!",
       description: `${data.name} has been submitted for review. Thank you!`,
     });
-    reset(); // Reset form after submission
+    reset();
+    if (onFormSubmit) {
+      onFormSubmit(); // Call the callback if provided
+    }
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto my-8">
-      <CardHeader>
+    <Card className="w-full border-0 shadow-none">
+      <CardHeader className="px-1 pt-0">
         <CardTitle>Submit a New Matcha Cafe</CardTitle>
         <CardDescription>Help us grow the MatchaMe directory! Fill in the details below.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <CardContent className="px-1 pb-0">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 md:space-y-6 max-h-[70vh] overflow-y-auto pr-3">
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -146,11 +153,13 @@ export function CafeSubmissionForm() {
             <Input id="facebookLink" type="url" {...register("facebookLink")} className="mt-1" placeholder="https://facebook.com/..." />
             {errors.facebookLink && <p className="text-xs text-destructive mt-1">{errors.facebookLink.message}</p>}
           </div>
-
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Submit Cafe
-          </Button>
+          
+          <div className="pt-2">
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Submit Cafe
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>
