@@ -18,7 +18,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Leaf, XCircle, MapIcon, Terminal, PlusCircle, Filter as FilterIcon } from "lucide-react";
+import { Leaf, XCircle, MapIcon, Terminal, PlusCircle, Filter as FilterIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 
 
@@ -29,6 +29,8 @@ function HomePage() {
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string | undefined>(undefined);
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
   const [isSubmissionDialogOpen, setIsSubmissionDialogOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const cafesPerPage = 10;
 
 
   useEffect(() => {
@@ -41,6 +43,7 @@ function HomePage() {
     if (selectedCafe && !allCafes.find(c => c.id === selectedCafe.id)) {
       setSelectedCafe(null); 
     }
+    setCurrentPage(1); // Reset to first page if allCafes changes
   }, [allCafes, selectedCafe]);
 
 
@@ -50,6 +53,24 @@ function HomePage() {
   
   const initialMapCenter = useMemo(() => ({ lat: 3.1390, lng: 101.6869 }), []); 
   const initialMapZoom = 10;
+
+  // Pagination logic
+  const indexOfLastCafe = currentPage * cafesPerPage;
+  const indexOfFirstCafe = indexOfLastCafe - cafesPerPage;
+  const currentCafesToDisplay = useMemo(() => {
+    return filteredCafes.slice(indexOfFirstCafe, indexOfLastCafe);
+  }, [filteredCafes, indexOfFirstCafe, indexOfLastCafe]);
+
+  const totalPages = Math.ceil(filteredCafes.length / cafesPerPage);
+
+  const handleNextPage = () => {
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+  };
+
+  const handlePrevPage = () => {
+    setCurrentPage((prev) => Math.max(prev - 1, 1));
+  };
+
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
@@ -87,29 +108,25 @@ function HomePage() {
                 <DialogTitle>Matcha Cafe Map</DialogTitle>
               </DialogHeader>
               <div className="h-[calc(100%-57px)]">
-              {/* 
-                The CafeMap component is currently commented out as per earlier request to remove the map.
-                If you want to re-enable it in the dialog, uncomment this section.
-              */}
-              {/* {googleMapsApiKey ? (
-                <CafeMap
-                  apiKey={googleMapsApiKey}
-                  cafes={filteredCafes}
-                  onMarkerClick={(cafe) => {
-                    handleCafeSelect(cafe);
-                    // Optionally close dialog on marker click
-                    // setIsMapDialogOpen(false); 
-                  }}
-                  selectedCafe={selectedCafe}
-                  initialCenter={initialMapCenter}
-                  initialZoom={initialMapZoom}
-                />
-              ) : ( */}
+              {googleMapsApiKey ? (
+                <p className="text-center p-4">Map component placeholder. CafeMap would go here.</p>
+                // Actual map component is commented out as per previous requests, but API key logic retained
+                // <CafeMap
+                //   apiKey={googleMapsApiKey}
+                //   cafes={filteredCafes} // Or allCafes if map should always show all
+                //   onMarkerClick={(cafe) => {
+                //     handleCafeSelect(cafe);
+                //     setIsMapDialogOpen(false); 
+                //   }}
+                //   selectedCafe={selectedCafe}
+                //   initialCenter={initialMapCenter}
+                //   initialZoom={initialMapZoom}
+                // />
+              ) : (
                 <div className="flex items-center justify-center h-full bg-muted text-destructive-foreground p-4">
-                    Map feature is currently under review. Check back soon!
-                    {/* Or, if API key is the issue: Map disabled due to missing or invalid API key. Check console for details. */}
+                    Map feature is currently under review or API key is missing. Check back soon!
                 </div>
-              {/* )} */}
+              )}
               </div>
             </DialogContent>
           </Dialog>
@@ -122,7 +139,7 @@ function HomePage() {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl">
-              <DialogHeader className="pb-3">
+               <DialogHeader className="pb-3">
                 <DialogTitle>Submit a New Matcha Cafe</DialogTitle>
               </DialogHeader>
               <CafeSubmissionForm onFormSubmit={() => setIsSubmissionDialogOpen(false)} />
@@ -154,9 +171,9 @@ function HomePage() {
                 Explore matcha cafes across Malaysia. Click "View Map" to see locations, or "Submit Cafe" to add a new one.
               </p>
               
-              {filteredCafes.length > 0 ? (
-                <div className="space-y-4"> {/* Changed from grid to space-y-4 for single column list */}
-                  {filteredCafes.map((cafe) => (
+              {currentCafesToDisplay.length > 0 ? (
+                <div className="space-y-4">
+                  {currentCafesToDisplay.map((cafe) => (
                     <Card
                       key={cafe.id}
                       onClick={() => handleCafeSelect(cafe)}
@@ -167,8 +184,8 @@ function HomePage() {
                       aria-label={`View details for ${cafe.name}`}
                       aria-pressed={selectedCafe?.id === cafe.id}
                     >
-                      <div className="flex flex-col sm:flex-row items-stretch"> {/* Card internal layout: stacked on mobile, row on sm+ */}
-                        <div className="relative sm:w-48 md:w-64 h-48 sm:h-auto flex-shrink-0"> {/* Image container */}
+                      <div className="flex flex-col sm:flex-row items-stretch">
+                        <div className="relative sm:w-48 md:w-64 h-48 sm:h-auto flex-shrink-0">
                           {cafe.logoLink ? (
                             <Image
                               src={cafe.logoLink}
@@ -185,7 +202,7 @@ function HomePage() {
                             </div>
                           )}
                         </div>
-                        <div className="flex-grow flex flex-col"> {/* Content container */}
+                        <div className="flex-grow flex flex-col">
                           <CardContent className="p-4 flex flex-col h-full">
                             <div>
                               <h3 className="font-semibold text-lg mb-1 text-card-foreground group-hover:text-primary transition-colors">{cafe.name}</h3>
@@ -212,6 +229,34 @@ function HomePage() {
                   </p>
                 </div>
               )}
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center space-x-4 mt-8 mb-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePrevPage}
+                    disabled={currentPage === 1}
+                    className="shadow-sm"
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-2" />
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleNextPage}
+                    disabled={currentPage === totalPages}
+                    className="shadow-sm"
+                  >
+                    Next
+                    <ChevronRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -221,3 +266,5 @@ function HomePage() {
 }
 
 export default HomePage;
+
+    
