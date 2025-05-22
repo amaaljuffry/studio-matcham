@@ -130,6 +130,12 @@ export default function HomePage() {
               setCurrentPage(pageNumberOfSelectedCafe);
             }
         }
+    } else {
+      // When deselecting, if not on first page, reset to first page
+      // to show the top of the list if the user was deep in pagination.
+      if (currentPage !== 1) {
+        // setCurrentPage(1); // Optionally reset to page 1 when clearing selection
+      }
     }
   }, [filteredCafes, cafesPerPage, currentPage]);
 
@@ -172,7 +178,7 @@ export default function HomePage() {
 
   const handleCafeSubmission = async () => {
     setIsSubmissionDialogOpen(false);
-    fetchCafesData();
+    fetchCafesData(); // Re-fetch cafes to include the newly submitted one (after approval)
   };
 
   const handleScrollToExplore = () => {
@@ -306,28 +312,28 @@ export default function HomePage() {
       )}
 
       <ScrollArea className="flex-1 overflow-y-auto">
-        <section className="bg-gradient-to-br from-primary/10 via-background to-accent/5 text-center py-16 md:py-24 px-4">
-          <div className="mx-auto w-full max-w-3xl">
-            <Leaf className="h-16 w-16 text-primary mx-auto mb-4" />
-            <h1 className="text-4xl md:text-5xl font-bold text-primary mb-4">
+        <section className="bg-gradient-to-br from-primary/10 via-background to-accent/5 text-center py-10 md:py-16 px-4">
+          <div className="mx-auto w-full max-w-2xl">
+            {/* Leaf icon removed */}
+            <h1 className="text-3xl md:text-4xl font-bold text-primary mb-3">
               Matcham
             </h1>
-            <p className="text-lg md:text-xl text-muted-foreground mb-8 leading-relaxed">
+            <p className="text-base md:text-lg text-muted-foreground mb-6 leading-relaxed">
               The dedicated hub for matcha lovers across Malaysia! If you&apos;re on the hunt for your next perfect cup, you&apos;ve come to the right place. We&apos;re not aiming to be another generic directory; instead, we&apos;re building a focused resource for finding truly exceptional matcha experiences.
             </p>
-            <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-3">
               <Button
-                size="lg"
+                size="default" // Changed from lg
                 onClick={handleScrollToExplore}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg transform hover:scale-105 transition-transform duration-200 ease-in-out w-full sm:w-auto"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transform hover:scale-105 transition-transform duration-200 ease-in-out w-full sm:w-auto"
               >
                 <Coffee className="mr-2 h-5 w-5" /> Explore Cafes
               </Button>
               <Button
                 variant="outline"
-                size="lg"
+                size="default" // Changed from lg
                 onClick={() => setIsSubmissionDialogOpen(true)}
-                className="border-accent text-accent hover:bg-accent/10 hover:text-accent-foreground shadow-lg transform hover:scale-105 transition-transform duration-200 ease-in-out w-full sm:w-auto"
+                className="border-accent text-accent hover:bg-accent/10 hover:text-accent-foreground shadow-md transform hover:scale-105 transition-transform duration-200 ease-in-out w-full sm:w-auto"
               >
                 <Send className="mr-2 h-5 w-5" /> Submit Your Cafe
               </Button>
@@ -516,8 +522,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-
-    
-
-    
