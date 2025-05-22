@@ -264,7 +264,6 @@ function HomePage() {
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl">
-                  {/* No DialogHeader needed as CafeSubmissionForm has its own */}
                   <CafeSubmissionForm onFormSubmit={() => setIsSubmissionDialogOpen(false)} />
                 </DialogContent>
               </Dialog>
@@ -313,15 +312,21 @@ function HomePage() {
                           aria-pressed={selectedCafe?.id === cafe.id}
                         >
                           <div className="relative w-full h-32 md:h-40 overflow-hidden">
-                            <Image
-                              src={cafe.image}
-                              alt={`Image of ${cafe.name}`}
-                              fill={true}
-                              sizes="(max-width: 1024px) 50vw, 25vw"
-                              style={{objectFit: 'cover'}}
-                              data-ai-hint={cafe.dataAiHint || "cafe matcha"}
-                              className="group-hover:scale-105 transition-transform duration-300 ease-in-out"
-                            />
+                            {cafe.logoLink ? (
+                               <Image
+                                src={cafe.logoLink}
+                                alt={`Logo of ${cafe.name}`}
+                                fill={true}
+                                sizes="(max-width: 1024px) 50vw, 25vw"
+                                style={{objectFit: 'cover'}}
+                                data-ai-hint={cafe.dataAiHint || "cafe matcha"}
+                                className="group-hover:scale-105 transition-transform duration-300 ease-in-out"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-muted flex items-center justify-center">
+                                <Leaf className="w-10 h-10 text-muted-foreground" />
+                              </div>
+                            )}
                           </div>
                           <CardContent className="p-3">
                             <h3 className="font-semibold text-md mb-1 text-card-foreground truncate">{cafe.name}</h3>

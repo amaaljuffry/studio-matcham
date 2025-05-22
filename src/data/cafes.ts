@@ -1,4 +1,4 @@
-import type { Cafe } from '@/types';
+import type { Cafe, HalalStatus } from '@/types';
 
 export const malaysianStates: string[] = [
   "Johor",
@@ -19,6 +19,23 @@ export const malaysianStates: string[] = [
   "Terengganu",
 ];
 
+export const additionalTagsList = [
+  { id: 'ceremonialGrade', label: 'Ceremonial Grade Matcha' },
+  { id: 'dessertsAvailable', label: 'Desserts Available' },
+  { id: 'cozyAmbience', label: 'Cozy Ambience' },
+  { id: 'workFriendly', label: 'Work Friendly (Wi-Fi & power outlets)' },
+  { id: 'mobileVendor', label: 'Mobile Vendor' },
+  { id: 'organicIngredients', label: 'Organic Ingredients' },
+  { id: 'earlyBird', label: 'Early Bird (opens before 8am)' },
+  { id: 'nightOwl', label: 'Night Owl (open late)' },
+] as const;
+
+export const halalStatusesList: { id: HalalStatus, label: string, description?: string }[] = [
+  { id: 'Muslim Friendly', label: 'Muslim Friendly', description: '(no pork or alcohol, halal ingredients)' },
+  { id: 'Muslim Owner', label: 'Muslim Owner', description: '(assumed halal)' },
+  { id: 'Non Halal', label: 'Non Halal', description: '(contains pork/alcohol/non-halal ingredients)' },
+];
+
 
 export const mockCafes: Cafe[] = [
   {
@@ -28,12 +45,12 @@ export const mockCafes: Cafe[] = [
     latitude: 3.1303,
     longitude: 101.6701,
     openingHours: '11 AM - 7 PM',
-    menuLink: 'https://www.nikonekomatcha.com/pages/menu',
     rating: 4.8,
-    image: 'https://placehold.co/600x400.png',
+    logoLink: 'https://placehold.co/300x200.png', // Changed from image
     dataAiHint: 'matcha cafe',
     state: 'Kuala Lumpur',
     tags: ['Minimalist', 'Popular', 'High Quality Matcha'],
+    halalStatus: 'Muslim Friendly',
     socialMediaLinks: {
       website: 'https://www.nikonekomatcha.com',
       instagram: 'https://www.instagram.com/nikonekomatcha',
@@ -46,12 +63,12 @@ export const mockCafes: Cafe[] = [
     latitude: 3.1399,
     longitude: 101.6287,
     openingHours: '10 AM - 8 PM',
-    menuLink: 'https://ohchamatcha.com/pages/menu',
     rating: 4.5,
-    image: 'https://placehold.co/600x400.png',
+    logoLink: 'https://placehold.co/300x200.png', // Changed from image
     dataAiHint: 'cafe interior',
     state: 'Kuala Lumpur',
     tags: ['Healthy Options', 'Aesthetic', 'Vegan Friendly'],
+    halalStatus: 'Muslim Friendly',
     socialMediaLinks: {
       website: 'https://ohchamatcha.com',
       instagram: 'https://www.instagram.com/ohchamatcha.kl',
@@ -65,10 +82,11 @@ export const mockCafes: Cafe[] = [
     longitude: 101.7136,
     openingHours: '10 AM - 10 PM',
     rating: 4.2,
-    image: 'https://placehold.co/600x400.png',
+    logoLink: 'https://placehold.co/300x200.png', // Changed from image
     dataAiHint: 'matcha drink',
     state: 'Kuala Lumpur',
     tags: ['Authentic Japanese', 'Shopping Mall'],
+    halalStatus: 'Not Specified',
     socialMediaLinks: {
       facebook: 'https://www.facebook.com/matchaherokyoto/',
     },
@@ -80,12 +98,12 @@ export const mockCafes: Cafe[] = [
     latitude: 3.1139,
     longitude: 101.5828,
     openingHours: '9 AM - 6 PM',
-    menuLink: 'https://hejosticky.com/menu',
     rating: 4.0,
-    image: 'https://placehold.co/600x400.png',
+    logoLink: 'https://placehold.co/300x200.png', // Changed from image
     dataAiHint: 'coffee shop',
     state: 'Selangor',
     tags: ['Work Friendly', 'Pastries'],
+    halalStatus: 'Not Specified',
     socialMediaLinks: {
       website: 'https://hejosticky.com',
       instagram: 'https://www.instagram.com/hejosticky/',
@@ -99,10 +117,11 @@ export const mockCafes: Cafe[] = [
     longitude: 101.7500,
     openingHours: '12 PM - 9 PM',
     rating: 3.8,
-    image: 'https://placehold.co/600x400.png',
+    logoLink: 'https://placehold.co/300x200.png', // Changed from image
     dataAiHint: 'matcha dessert',
     state: 'Kuala Lumpur',
     tags: ['Desserts', 'Casual'],
+    halalStatus: 'Not Specified',
   },
   {
     id: '6',
@@ -112,10 +131,11 @@ export const mockCafes: Cafe[] = [
     longitude: 101.7119,
     openingHours: '11 AM - 11 PM',
     rating: 4.6,
-    image: 'https://placehold.co/600x400.png',
+    logoLink: 'https://placehold.co/300x200.png', // Changed from image
     dataAiHint: 'modern restaurant',
     state: 'Kuala Lumpur',
     tags: ['Famous Cheesecake', 'Japanese Fusion', 'Elegant'],
+    halalStatus: 'Non Halal',
     socialMediaLinks: {
       website: 'https://www.thetokyorestaurant.com/',
       instagram: 'https://www.instagram.com/thetokyorestaurant/',
@@ -129,10 +149,11 @@ export const mockCafes: Cafe[] = [
     longitude: 101.7000,
     openingHours: '10 AM - 9 PM',
     rating: 4.3,
-    image: 'https://placehold.co/600x400.png',
+    logoLink: 'https://placehold.co/300x200.png', // Changed from image
     dataAiHint: 'zen garden',
     state: 'Kuala Lumpur',
     tags: ['Quiet', 'Reading Spot', 'Muslim Friendly'],
+    halalStatus: 'Muslim Friendly',
   },
   {
     id: '8',
@@ -142,10 +163,11 @@ export const mockCafes: Cafe[] = [
     longitude: 103.7634,
     openingHours: '10 AM - 10 PM',
     rating: 4.4,
-    image: 'https://placehold.co/600x400.png',
+    logoLink: 'https://placehold.co/300x200.png', // Changed from image
     dataAiHint: 'cafe exterior',
     state: 'Johor',
     tags: ['Trendy', 'Young Crowd', 'Instagrammable'],
+    halalStatus: 'Not Specified',
     socialMediaLinks: {
       instagram: 'https://www.instagram.com/matchatimejb',
     },
@@ -158,10 +180,11 @@ export const mockCafes: Cafe[] = [
     longitude: 100.3355,
     openingHours: '9 AM - 6 PM',
     rating: 4.7,
-    image: 'https://placehold.co/600x400.png',
+    logoLink: 'https://placehold.co/300x200.png', // Changed from image
     dataAiHint: 'heritage building',
     state: 'Penang',
     tags: ['Heritage', 'Artisan', 'Specialty Drinks'],
+    halalStatus: 'Muslim Friendly',
     socialMediaLinks: {
       website: 'https://penangmatchahouse.com',
       facebook: 'https://www.facebook.com/PenangMatchaHouse',
