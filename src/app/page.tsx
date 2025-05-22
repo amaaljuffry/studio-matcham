@@ -35,7 +35,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger, 
+  SheetTrigger,
 } from "@/components/ui/sheet";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +45,7 @@ import { Leaf, XCircle, MapIcon, Terminal, PlusCircle, Filter as FilterIcon, Che
 import Image from "next/image";
 import Link from "next/link";
 import { CafeMap } from "@/components/cafe-map";
+import { useToast } from "@/hooks/use-toast";
 
 export default function HomePage() {
   const [allCafes, setAllCafes] = useState<Cafe[]>([]);
@@ -53,6 +54,8 @@ export default function HomePage() {
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string | undefined>(undefined);
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
   const [isSubmissionDialogOpen, setIsSubmissionDialogOpen] = useState(false);
+
+  const { toast } = useToast();
 
   // Filter states
   const [selectedStateFilter, setSelectedStateFilter] = useState<string>("All");
@@ -64,10 +67,20 @@ export default function HomePage() {
 
   const fetchCafesData = useCallback(async () => {
     setIsLoadingCafes(true);
-    const cafesFromDb = await getCafes();
-    setAllCafes(cafesFromDb);
-    setIsLoadingCafes(false);
-  }, []);
+    try {
+      const cafesFromDb = await getCafes();
+      setAllCafes(cafesFromDb);
+    } catch (error) {
+      console.error("Failed to fetch cafes:", error);
+      toast({
+        title: "Error Fetching Cafes",
+        description: "Could not load cafe data. Please try refreshing the page.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingCafes(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     fetchCafesData();
@@ -104,22 +117,22 @@ export default function HomePage() {
 
   useEffect(() => {
     setCurrentPage(1); // Reset to first page when filters change
-  }, [selectedStateFilter, selectedHalalFilter, selectedTagsFilter]);
+  }, [selectedStateFilter, selectedHalalFilter, selectedTagsFilter, fetchCafesData]); // Added fetchCafesData dependency to reset page if allCafes changes
 
 
   const handleCafeSelect = useCallback((cafe: Cafe | null) => {
     setSelectedCafe(cafe);
-    if (cafe) { // If a cafe is selected, ensure it's visible by resetting pagination
+    if (cafe) {
         const cafeIndex = filteredCafes.findIndex(c => c.id === cafe.id);
         if (cafeIndex !== -1) {
             const pageNumberOfSelectedCafe = Math.floor(cafeIndex / cafesPerPage) + 1;
-            setCurrentPage(pageNumberOfSelectedCafe);
+            if (currentPage !== pageNumberOfSelectedCafe) { // Only set if page actually changes
+              setCurrentPage(pageNumberOfSelectedCafe);
+            }
         }
     } else {
-      // Reset to first page if clearing selection AND if not already on page 1 with current filters
-      if (currentPage !== 1) {
-        setCurrentPage(1);
-      }
+      // No specific cafe selected, remain on current page or reset if coming from detail view on different page
+      // The useEffect for filter changes already handles resetting to page 1.
     }
   }, [filteredCafes, cafesPerPage, currentPage]);
 
@@ -173,18 +186,18 @@ export default function HomePage() {
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <Dialog open={isMapDialogOpen} onOpenChange={setIsMapDialogOpen}>
-        <DialogContent className="p-0 sm:max-w-2xl md:max-w-4xl lg:max-w-5xl w-[90vw] h-[80vh] overflow-hidden">
-          <DialogHeader className="p-4 border-b sticky top-0 bg-card z-10">
+        <DialogContent className="p-0 w-screen h-screen max-w-none rounded-none border-0 shadow-none flex flex-col overflow-hidden">
+          <DialogHeader className="p-4 border-b bg-card z-10 flex-shrink-0">
             <DialogTitle>Matcha Cafe Map</DialogTitle>
           </DialogHeader>
-          <div className="h-[calc(100%-57px)]"> {/* Adjust height to account for header */}
+          <div className="flex-grow overflow-hidden">
           {googleMapsApiKey ? (
             <CafeMap
               apiKey={googleMapsApiKey}
-              cafes={allCafes} // Pass all cafes to the map
+              cafes={allCafes} 
               onMarkerClick={(cafe) => {
                 handleCafeSelect(cafe);
-                setIsMapDialogOpen(false); // Close dialog on marker click
+                setIsMapDialogOpen(false); 
               }}
               selectedCafe={selectedCafe}
               initialCenter={initialMapCenter}
@@ -250,12 +263,7 @@ export default function HomePage() {
 
           {/* Mobile Hamburger Menu */}
           <div className="md:hidden">
-            <Sheet open={false} onOpenChange={(open) => {
-                // This structure is a bit unusual for Sheet.
-                // Typically Sheet manages its own open state via its trigger.
-                // If you need to programmatically control it, you'd pass an `open` prop and `onOpenChange`.
-                // For simplicity, let's assume Sheet handles its own open state.
-            }}>
+            <Sheet open={false} onOpenChange={(open) => { /* Sheet manages its own state via trigger */ }}>
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon" className="shadow-sm">
                   <Menu className="h-5 w-5" />
@@ -267,11 +275,11 @@ export default function HomePage() {
                   <SheetTitle>Menu</SheetTitle>
                 </SheetHeader>
                 <nav className="flex flex-col space-y-3 mt-6">
-                  <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsMapDialogOpen(true); }}>
+                  <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsMapDialogOpen(true); /* Consider closing sheet */ }}>
                     <MapIcon className="w-4 h-4 mr-2" />
                     View Map
                   </Button>
-                  <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsSubmissionDialogOpen(true); }}>
+                  <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsSubmissionDialogOpen(true); /* Consider closing sheet */ }}>
                     <PlusCircle className="w-4 h-4 mr-2" />
                     Submit Cafe
                   </Button>
@@ -511,3 +519,4 @@ export default function HomePage() {
     </div>
   );
 }
+
