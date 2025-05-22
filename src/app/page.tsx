@@ -135,7 +135,7 @@ export default function HomePage() {
 
 
   const initialMapCenter = useMemo(() => ({ lat: 3.1390, lng: 101.6869 }), []); // KL Center
-  const initialMapZoom = 7;
+  const initialZoom = 7; // Define initialZoom
 
   const indexOfLastCafe = currentPage * cafesPerPage;
   const indexOfFirstCafe = indexOfLastCafe - cafesPerPage;
@@ -517,5 +517,7 @@ export default function HomePage() {
   );
 }
 
+
+    
 
     
