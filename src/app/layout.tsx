@@ -1,12 +1,9 @@
 import type {Metadata} from 'next';
-import { Inter } from 'next/font/google';
+// Removed Inter font import
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
-const inter = Inter({
-  variable: '--font-inter',
-  subsets: ['latin'],
-});
+// Removed Inter font setup
 
 export const metadata: Metadata = {
   title: 'MatchaMe',
@@ -20,7 +17,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning={true}>
-      <body className={`${inter.variable} antialiased`}>
+      {/* Removed font variable from body className */}
+      <body className="antialiased">
         {children}
         <Toaster />
       </body>

@@ -98,8 +98,8 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* Apply the font variable from layout.tsx */
-    font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+    /* Updated font stack */
+    font-family: "Helvetica Now Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
   }
 }
 
@@ -112,3 +112,4 @@ html {
    or simply ensure the body tag in layout.tsx has the font variable class.
    The current setup in layout.tsx already does this.
 */
+
