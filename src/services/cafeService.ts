@@ -3,7 +3,8 @@ import { collection, getDocs, addDoc, doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Cafe } from '@/types';
 
-const cafesCollectionRef = collection(db, 'cafes');
+const cafesCollectionRef = collection(db, 'cafes'); // For approved, live cafes
+const pendingCafesCollectionRef = collection(db, 'pendingCafes'); // For submissions awaiting review
 
 export async function getCafes(): Promise<Cafe[]> {
   try {
@@ -20,13 +21,14 @@ export async function getCafes(): Promise<Cafe[]> {
   }
 }
 
+// This function now adds to the 'pendingCafes' collection for moderation
 export async function addCafe(cafeData: Omit<Cafe, 'id'>): Promise<string | null> {
   try {
-    const docRef = await addDoc(cafesCollectionRef, cafeData);
-    console.log("Document written with ID: ", docRef.id);
+    const docRef = await addDoc(pendingCafesCollectionRef, cafeData);
+    console.log("Pending cafe document written to 'pendingCafes' with ID: ", docRef.id);
     return docRef.id;
   } catch (error) {
-    console.error("Error adding document: ", error);
+    console.error("Error adding pending cafe document: ", error);
     return null;
   }
 }
@@ -47,10 +49,11 @@ export async function addCafe(cafeData: Omit<Cafe, 'id'>): Promise<string | null
 //     // This example will create new documents with auto-generated IDs.
 //     try {
 //         const { id, ...dataToSeed } = cafe; // remove id for auto-generation
-//         await addDoc(cafesCollectionRef, dataToSeed);
+//         await addDoc(cafesCollectionRef, dataToSeed); // Seed to live cafes for now
 //         console.log(`Added cafe: ${cafe.name}`);
 //     } catch (e) {
 //         console.error("Error adding mock cafe: ", e);
 //     }
 //   });
 // }
+

@@ -72,18 +72,17 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
       latitude: formData.latitude || 0,
       longitude: formData.longitude || 0,
       openingHours: formData.openingHours,
-      rating: formData.rating,
+      rating: formData.rating, // Form includes rating, defaults to 0
       halalStatus: formData.halalStatus,
       tags: formData.tags,
     };
 
     if (formData.logoLink && formData.logoLink.trim() !== '') {
       cafeDataForDb.logoLink = formData.logoLink;
-    } else {
-      delete cafeDataForDb.logoLink; // Ensure undefined is not sent
     }
+    // No 'else' needed, if logoLink is empty, it's omitted
 
-    const socialLinks: Cafe['socialMediaLinks'] = {};
+    const socialLinks: Partial<Cafe['socialMediaLinks']> = {}; // Use Partial here
     if (formData.websiteLink && formData.websiteLink.trim() !== '') socialLinks.website = formData.websiteLink;
     if (formData.socialInstagram && formData.socialInstagram.trim() !== '') socialLinks.instagram = formData.socialInstagram;
     if (formData.socialFacebook && formData.socialFacebook.trim() !== '') socialLinks.facebook = formData.socialFacebook;
@@ -92,17 +91,16 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
     if (formData.socialWhatsapp && formData.socialWhatsapp.trim() !== '') socialLinks.whatsapp = formData.socialWhatsapp;
 
     if (Object.keys(socialLinks).length > 0) {
-      cafeDataForDb.socialMediaLinks = socialLinks;
-    } else {
-      delete cafeDataForDb.socialMediaLinks; // Ensure undefined is not sent
+      cafeDataForDb.socialMediaLinks = socialLinks as Cafe['socialMediaLinks'];
     }
+    // No 'else' needed, if socialLinks is empty, it's omitted
 
     const newCafeId = await addCafe(cafeDataForDb as Omit<Cafe, 'id'>);
 
     if (newCafeId) {
       toast({
         title: "Submission Received! 🍵✨",
-        description: `${formData.name} has been submitted for review. Thank you for sharing!`,
+        description: `${formData.name} has been submitted for review. Thank you for contributing!`,
       });
       reset();
       if (onFormSubmit) {
@@ -330,3 +328,4 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
     </Card>
   );
 }
+
