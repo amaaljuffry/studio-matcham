@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Cafe } from "@/types";
@@ -50,6 +51,7 @@ export function CafeMap({
             title={cafe.name}
           >
             <Pin
+              scale={selectedCafe?.id === cafe.id ? 1.5 : 1}
               background={selectedCafe?.id === cafe.id ? "var(--color-accent)" : "var(--color-primary)"}
               borderColor={selectedCafe?.id === cafe.id ? "var(--color-accent-foreground)" : "var(--color-primary-foreground)"}
               glyphColor={selectedCafe?.id === cafe.id ? "var(--color-accent-foreground)" : "var(--color-primary-foreground)"}
