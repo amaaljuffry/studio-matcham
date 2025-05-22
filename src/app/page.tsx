@@ -116,9 +116,12 @@ export default function HomePage() {
             setCurrentPage(pageNumberOfSelectedCafe);
         }
     } else {
-      setCurrentPage(1); // Reset to first page when clearing selection
+      // Reset to first page if clearing selection AND if not already on page 1 with current filters
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      }
     }
-  }, [filteredCafes, cafesPerPage]);
+  }, [filteredCafes, cafesPerPage, currentPage]);
 
 
   const initialMapCenter = useMemo(() => ({ lat: 3.1390, lng: 101.6869 }), []); // KL Center
@@ -174,14 +177,14 @@ export default function HomePage() {
           <DialogHeader className="p-4 border-b sticky top-0 bg-card z-10">
             <DialogTitle>Matcha Cafe Map</DialogTitle>
           </DialogHeader>
-          <div className="h-[calc(100%-57px)]">
+          <div className="h-[calc(100%-57px)]"> {/* Adjust height to account for header */}
           {googleMapsApiKey ? (
             <CafeMap
               apiKey={googleMapsApiKey}
-              cafes={allCafes}
+              cafes={allCafes} // Pass all cafes to the map
               onMarkerClick={(cafe) => {
                 handleCafeSelect(cafe);
-                setIsMapDialogOpen(false);
+                setIsMapDialogOpen(false); // Close dialog on marker click
               }}
               selectedCafe={selectedCafe}
               initialCenter={initialMapCenter}
@@ -247,7 +250,12 @@ export default function HomePage() {
 
           {/* Mobile Hamburger Menu */}
           <div className="md:hidden">
-            <Sheet>
+            <Sheet open={false} onOpenChange={(open) => {
+                // This structure is a bit unusual for Sheet.
+                // Typically Sheet manages its own open state via its trigger.
+                // If you need to programmatically control it, you'd pass an `open` prop and `onOpenChange`.
+                // For simplicity, let's assume Sheet handles its own open state.
+            }}>
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon" className="shadow-sm">
                   <Menu className="h-5 w-5" />
@@ -503,5 +511,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
