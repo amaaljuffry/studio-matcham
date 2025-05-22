@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
@@ -18,7 +19,10 @@ import {
   SidebarInset,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Leaf, Filter, Bot as BotIcon, Info, XCircle } from "lucide-react"; // Renamed Bot to BotIcon to avoid conflict
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Leaf, Filter, Bot as BotIcon, Info, XCircle, List as ListIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const MALAYSIA_CENTER = { lat: 4.2105, lng: 101.9758 }; // General center of Malaysia
@@ -50,14 +54,17 @@ export default function HomePage() {
   useEffect(() => {
     const result = allCafes.filter((cafe) => cafe.rating >= minRating);
     setFilteredCafes(result);
-    setSelectedCafe(null); // Clear selection when filters change
-  }, [minRating, allCafes]);
+    // Keep selected cafe if it's still in the filtered list, otherwise clear it.
+    if (selectedCafe && !result.find(c => c.id === selectedCafe.id)) {
+      setSelectedCafe(null);
+    }
+  }, [minRating, allCafes, selectedCafe]);
 
   const handleRatingChange = (newRating: number) => {
     setMinRating(newRating);
   };
 
-  const handleMarkerClick = (cafe: Cafe) => {
+  const handleCafeSelect = (cafe: Cafe) => {
     setSelectedCafe(cafe);
   };
 
@@ -98,8 +105,13 @@ export default function HomePage() {
                 <div className="group-data-[collapsible=icon]:hidden">
                   <CafeFilterOptions onFilterChange={handleRatingChange} currentMinRating={minRating} />
                 </div>
-                <div className="hidden group-data-[collapsible=icon]:flex justify-center">
-                   <Filter className="w-6 h-6 text-sidebar-foreground" title="Filters" />
+                <div className="hidden group-data-[collapsible=icon]:flex justify-center py-2">
+                   <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Filter className="w-6 h-6 text-sidebar-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" align="center">Filters</TooltipContent>
+                   </Tooltip>
                 </div>
               </div>
 
@@ -113,11 +125,69 @@ export default function HomePage() {
                  <div className="group-data-[collapsible=icon]:hidden">
                   <AiConciergeForm cafes={filteredCafes} />
                 </div>
-                 <div className="hidden group-data-[collapsible=icon]:flex justify-center">
-                   <BotIcon className="w-6 h-6 text-sidebar-foreground" title="AI Concierge" />
+                 <div className="hidden group-data-[collapsible=icon]:flex justify-center py-2">
+                   <Tooltip>
+                      <TooltipTrigger asChild>
+                        <BotIcon className="w-6 h-6 text-sidebar-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" align="center">AI Concierge</TooltipContent>
+                    </Tooltip>
                 </div>
               </div>
               
+              <Separator className="my-4 group-data-[collapsible=icon]:hidden bg-sidebar-border" />
+
+              {/* Cafe List Section */}
+              <div>
+                <h2 className="text-lg font-semibold mb-3 flex items-center text-sidebar-foreground group-data-[collapsible=icon]:hidden">
+                  <ListIcon className="w-5 h-5 mr-2" />
+                  Cafes ({filteredCafes.length})
+                </h2>
+                <div className="space-y-2 group-data-[collapsible=icon]:hidden">
+                  {filteredCafes.length > 0 ? (
+                    filteredCafes.map((cafe) => (
+                      <Card
+                        key={cafe.id}
+                        onClick={() => handleCafeSelect(cafe)}
+                        className={`cursor-pointer hover:shadow-lg transition-all duration-150 ease-in-out ${
+                          selectedCafe?.id === cafe.id ? "ring-2 ring-primary border-primary bg-primary/10 shadow-md" : "bg-card hover:bg-muted/60"
+                        }`}
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCafeSelect(cafe);}}
+                        role="button"
+                        aria-pressed={selectedCafe?.id === cafe.id}
+                        aria-label={`Select cafe ${cafe.name}`}
+                      >
+                        <CardContent className="p-3">
+                          <h3 className={`font-semibold text-sm ${selectedCafe?.id === cafe.id ? 'text-primary': 'text-card-foreground'}`}>{cafe.name}</h3>
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{cafe.address}</p>
+                          <div className="flex items-center justify-between mt-2">
+                            <Badge variant={selectedCafe?.id === cafe.id ? "default" : "outline"} className={`text-xs ${selectedCafe?.id === cafe.id ? '' : 'border-accent text-accent'}`}>
+                              {cafe.rating} ★
+                            </Badge>
+                            {/* You could add distance here later if calculated */}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground p-3 text-center bg-muted/50 rounded-md">
+                      No cafes match your current filters.
+                    </p>
+                  )}
+                </div>
+                <div className="hidden group-data-[collapsible=icon]:flex justify-center py-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <ListIcon className="w-6 h-6 text-sidebar-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" align="center">
+                      Cafes ({filteredCafes.length})
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+
               {selectedCafe && (
                 <>
                   <Separator className="my-4 group-data-[collapsible=icon]:hidden bg-sidebar-border" />
@@ -130,15 +200,23 @@ export default function HomePage() {
                       <CafeDetailsCard cafe={selectedCafe} />
                       <Button
                         variant="outline"
+                        size="sm"
                         onClick={() => setSelectedCafe(null)}
-                        className="mt-3 w-full hover:bg-destructive/10 border-destructive text-destructive"
+                        className="mt-3 w-full hover:bg-destructive/10 border-destructive text-destructive hover:text-destructive-foreground"
                       >
                         <XCircle className="w-4 h-4 mr-2" />
                         Clear Selection
                       </Button>
                     </div>
-                     <div className="hidden group-data-[collapsible=icon]:flex justify-center">
-                       <Info className="w-6 h-6 text-sidebar-foreground" title="Cafe Details" />
+                     <div className="hidden group-data-[collapsible=icon]:flex justify-center py-2">
+                       <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="w-6 h-6 text-sidebar-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent side="right" align="center">
+                            {selectedCafe.name}
+                          </TooltipContent>
+                        </Tooltip>
                     </div>
                   </div>
                 </>
@@ -155,7 +233,7 @@ export default function HomePage() {
         <CafeMap
           apiKey={mapApiKey}
           cafes={filteredCafes}
-          onMarkerClick={handleMarkerClick}
+          onMarkerClick={handleCafeSelect} // Renamed from handleMarkerClick
           selectedCafe={selectedCafe}
           initialCenter={currentMapCenter}
           initialZoom={currentMapZoom}
@@ -169,3 +247,4 @@ export default function HomePage() {
     </SidebarProvider>
   );
 }
+
