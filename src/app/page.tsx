@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import type { Cafe } from "@/types";
 import { malaysianStates, halalStatusesList, additionalTagsList } from "@/data/cafes";
-import { getCafes, addCafe } from "@/services/cafeService";
+import { getCafes } from "@/services/cafeService";
 import { CafeDetailsCard } from "@/components/cafe-details-card";
 import { CafeSubmissionForm } from "@/components/CafeSubmissionForm";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger, // Added DialogTrigger
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -21,7 +22,7 @@ import {
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenuTrigger as DropdownMenuPrimitiveTrigger, // Renamed to avoid conflict if needed, but DropdownMenuTrigger is more standard
 } from "@/components/ui/dropdown-menu";
 import {
   Select,
@@ -35,17 +36,16 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
+  SheetTrigger as SheetPrimitiveTrigger, // Renamed to avoid conflict if needed
 } from "@/components/ui/sheet";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
-import { Leaf, XCircle, MapIcon, Terminal, PlusCircle, Filter as FilterIcon, ChevronLeft, ChevronRight, Info, ChevronDown, Menu, Loader2 } from "lucide-react";
+import { Leaf, XCircle, MapIcon, Terminal, PlusCircle, Filter as FilterIcon, ChevronLeft, ChevronRight, Info, ChevronDown, Menu, Loader2, Coffee, Send } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { CafeMap } from "@/components/cafe-map";
-
 
 export default function HomePage() {
   const [allCafes, setAllCafes] = useState<Cafe[]>([]);
@@ -63,15 +63,17 @@ export default function HomePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const cafesPerPage = 10;
 
-  useEffect(() => {
-    const fetchCafes = async () => {
-      setIsLoadingCafes(true);
-      const cafesFromDb = await getCafes();
-      setAllCafes(cafesFromDb);
-      setIsLoadingCafes(false);
-    };
-    fetchCafes();
+  const fetchCafesData = useCallback(async () => {
+    setIsLoadingCafes(true);
+    const cafesFromDb = await getCafes();
+    setAllCafes(cafesFromDb);
+    setIsLoadingCafes(false);
   }, []);
+
+  useEffect(() => {
+    fetchCafesData();
+  }, [fetchCafesData]);
+
 
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -102,22 +104,24 @@ export default function HomePage() {
   }, [allCafes, selectedStateFilter, selectedHalalFilter, selectedTagsFilter]);
 
   useEffect(() => {
-    if (selectedCafe && !filteredCafes.find(c => c.id === selectedCafe.id)) {
-      setSelectedCafe(null);
-    }
-    setCurrentPage(1);
-  }, [filteredCafes, selectedCafe === null]);
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [selectedStateFilter, selectedHalalFilter, selectedTagsFilter]);
 
 
   const handleCafeSelect = useCallback((cafe: Cafe | null) => {
     setSelectedCafe(cafe);
-    if (cafe === null) {
-      setCurrentPage(1);
+    if (cafe) { // If a cafe is selected, ensure it's visible by resetting pagination
+        const cafeIndex = filteredCafes.findIndex(c => c.id === cafe.id);
+        if (cafeIndex !== -1) {
+            const pageNumberOfSelectedCafe = Math.floor(cafeIndex / cafesPerPage) + 1;
+            setCurrentPage(pageNumberOfSelectedCafe);
+        }
     }
-  }, []);
+  }, [filteredCafes, cafesPerPage]);
 
-  const initialMapCenter = useMemo(() => ({ lat: 3.1390, lng: 101.6869 }), []);
-  const initialMapZoom = 10;
+
+  const initialMapCenter = useMemo(() => ({ lat: 3.1390, lng: 101.6869 }), []); // KL Center
+  const initialMapZoom = 7;
 
   const indexOfLastCafe = currentPage * cafesPerPage;
   const indexOfFirstCafe = indexOfLastCafe - cafesPerPage;
@@ -154,10 +158,11 @@ export default function HomePage() {
 
   const handleCafeSubmission = async () => {
     setIsSubmissionDialogOpen(false);
-    setIsLoadingCafes(true);
-    const cafesFromDb = await getCafes();
-    setAllCafes(cafesFromDb);
-    setIsLoadingCafes(false);
+    fetchCafesData(); // Re-fetch cafes to include the newly submitted one (after it's approved and moved)
+  };
+
+  const handleScrollToExplore = () => {
+    document.getElementById('cafe-listings-section')?.scrollIntoView({ behavior: 'smooth' });
   };
 
 
@@ -165,7 +170,7 @@ export default function HomePage() {
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <Dialog open={isMapDialogOpen} onOpenChange={setIsMapDialogOpen}>
         <DialogContent className="p-0 sm:max-w-2xl md:max-w-4xl lg:max-w-5xl w-[90vw] h-[80vh] overflow-hidden">
-          <DialogHeader className="p-4 border-b sticky top-0 bg-background z-10">
+          <DialogHeader className="p-4 border-b sticky top-0 bg-card z-10">
             <DialogTitle>Matcha Cafe Map</DialogTitle>
           </DialogHeader>
           <div className="h-[calc(100%-57px)]">
@@ -205,7 +210,10 @@ export default function HomePage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleCafeSelect(null)}
+                onClick={() => {
+                  handleCafeSelect(null);
+                  setCurrentPage(1); // Reset to first page when clearing selection
+                }}
                 className="hover:bg-accent/10 hover:text-accent-foreground border-accent text-accent flex items-center shadow-sm"
                 aria-label="Clear selection and view cafe list"
               >
@@ -224,15 +232,13 @@ export default function HomePage() {
           {/* Desktop Buttons */}
           <div className="hidden md:flex items-center gap-2">
             <Button variant="outline" size="sm" className="shadow-sm" onClick={() => setIsMapDialogOpen(true)}>
-              <MapIcon className="w-4 h-4 mr-2" />
-              View Map
+                <MapIcon className="w-4 h-4 mr-2" />
+                View Map
             </Button>
-
             <Button variant="outline" size="sm" className="shadow-sm" onClick={() => setIsSubmissionDialogOpen(true)}>
-              <PlusCircle className="w-4 h-4 mr-2" />
-              Submit Cafe
+                <PlusCircle className="w-4 h-4 mr-2" />
+                Submit Cafe
             </Button>
-
             <Link href="/about" passHref>
               <Button variant="outline" size="sm" className="shadow-sm">
                 <Info className="w-4 h-4 mr-2" />
@@ -243,37 +249,35 @@ export default function HomePage() {
 
           {/* Mobile Hamburger Menu */}
           <div className="md:hidden">
-            <Sheet>
-              <SheetTrigger asChild>
+            <SheetPrimitiveTrigger asChild>
                 <Button variant="outline" size="icon" className="shadow-sm">
                   <Menu className="h-5 w-5" />
                   <span className="sr-only">Open menu</span>
                 </Button>
-              </SheetTrigger>
-              <SheetContent side="right">
-                <SheetHeader>
-                  <SheetTitle>Menu</SheetTitle>
-                </SheetHeader>
-                <nav className="flex flex-col space-y-3 mt-6">
-                  <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsMapDialogOpen(true); }}>
-                    <MapIcon className="w-4 h-4 mr-2" />
-                    View Map
+              </SheetPrimitiveTrigger>
+            <SheetContent side="right">
+              <SheetHeader>
+                <SheetTitle>Menu</SheetTitle>
+              </SheetHeader>
+              <nav className="flex flex-col space-y-3 mt-6">
+                <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsMapDialogOpen(true); }}>
+                  <MapIcon className="w-4 h-4 mr-2" />
+                  View Map
+                </Button>
+                <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsSubmissionDialogOpen(true); }}>
+                  <PlusCircle className="w-4 h-4 mr-2" />
+                  Submit Cafe
+                </Button>
+                <Link href="/about" passHref legacyBehavior>
+                  <Button variant="ghost" className="w-full justify-start" asChild>
+                     <a>
+                      <Info className="w-4 h-4 mr-2" />
+                      About
+                     </a>
                   </Button>
-                  <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsSubmissionDialogOpen(true); }}>
-                    <PlusCircle className="w-4 h-4 mr-2" />
-                    Submit Cafe
-                  </Button>
-                  <Link href="/about" passHref legacyBehavior>
-                    <Button variant="ghost" className="w-full justify-start" asChild>
-                       <a>
-                        <Info className="w-4 h-4 mr-2" />
-                        About
-                       </a>
-                    </Button>
-                  </Link>
-                </nav>
-              </SheetContent>
-            </Sheet>
+                </Link>
+              </nav>
+            </SheetContent>
           </div>
         </div>
       </header>
@@ -289,7 +293,36 @@ export default function HomePage() {
       )}
 
       <ScrollArea className="flex-1 overflow-y-auto">
-        <div className="p-4 mx-auto w-full md:w-3/4">
+        <section className="bg-gradient-to-br from-primary/10 via-background to-accent/5 text-center py-16 md:py-24 px-4">
+          <div className="mx-auto w-full max-w-3xl">
+            <Leaf className="h-16 w-16 text-primary mx-auto mb-4" />
+            <h1 className="text-4xl md:text-5xl font-bold text-primary mb-4">
+              Matcham
+            </h1>
+            <p className="text-lg md:text-xl text-muted-foreground mb-8 leading-relaxed">
+              The dedicated hub for matcha lovers across Malaysia! If you&apos;re on the hunt for your next perfect cup, you&apos;ve come to the right place. We&apos;re not aiming to be another generic directory; instead, we&apos;re building a focused resource for finding truly exceptional matcha experiences.
+            </p>
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+              <Button
+                size="lg"
+                onClick={handleScrollToExplore}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg transform hover:scale-105 transition-transform duration-200 ease-in-out w-full sm:w-auto"
+              >
+                <Coffee className="mr-2 h-5 w-5" /> Explore Cafes
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => setIsSubmissionDialogOpen(true)}
+                className="border-accent text-accent hover:bg-accent/10 hover:text-accent-foreground shadow-lg transform hover:scale-105 transition-transform duration-200 ease-in-out w-full sm:w-auto"
+              >
+                <Send className="mr-2 h-5 w-5" /> Submit Your Cafe
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        <div id="cafe-listings-section" className="p-4 mx-auto w-full md:w-3/4">
           {selectedCafe ? (
             <CafeDetailsCard cafe={selectedCafe} />
           ) : (
@@ -299,7 +332,7 @@ export default function HomePage() {
                   <div>
                     <Label htmlFor="state-filter" className="text-sm font-medium text-card-foreground">State</Label>
                     <Select value={selectedStateFilter} onValueChange={handleStateFilterChange}>
-                      <SelectTrigger id="state-filter" className="mt-1 w-full bg-background hover:bg-muted/80 focus:ring-ring">
+                      <SelectTrigger id="state-filter" className="mt-1 w-full bg-input hover:bg-muted/80 focus:ring-ring">
                         <SelectValue placeholder="Filter by State" />
                       </SelectTrigger>
                       <SelectContent>
@@ -314,7 +347,7 @@ export default function HomePage() {
                   <div>
                     <Label htmlFor="halal-filter" className="text-sm font-medium text-card-foreground">Halal Status</Label>
                     <Select value={selectedHalalFilter} onValueChange={handleHalalFilterChange}>
-                      <SelectTrigger id="halal-filter" className="mt-1 w-full bg-background hover:bg-muted/80 focus:ring-ring">
+                      <SelectTrigger id="halal-filter" className="mt-1 w-full bg-input hover:bg-muted/80 focus:ring-ring">
                         <SelectValue placeholder="Filter by Halal Status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -329,12 +362,12 @@ export default function HomePage() {
                   <div>
                     <Label className="text-sm font-medium text-card-foreground block mb-1">Additional Tags</Label>
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between bg-background hover:bg-muted/80 focus:ring-ring">
+                      <DropdownMenuPrimitiveTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between bg-input hover:bg-muted/80 focus:ring-ring">
                           {selectedTagsFilter.length > 0 ? `${selectedTagsFilter.length} tag(s) selected` : "Filter by Tags"}
                           <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
                         </Button>
-                      </DropdownMenuTrigger>
+                      </DropdownMenuPrimitiveTrigger>
                       <DropdownMenuContent className="w-64">
                         <DropdownMenuLabel>Select Tags</DropdownMenuLabel>
                         <DropdownMenuSeparator />
@@ -359,20 +392,20 @@ export default function HomePage() {
                 </div>
               ) : (
                 <>
-                  <h1 className="text-xl md:text-2xl font-bold mb-1 text-primary">
-                    {filteredCafes.length} Matcha Cafes Found
-                  </h1>
+                  <h2 className="text-xl md:text-2xl font-bold mb-1 text-primary">
+                    {filteredCafes.length} Matcha Cafe{filteredCafes.length === 1 ? '' : 's'} Found
+                  </h2>
                   <p className="text-muted-foreground mb-4 text-sm">
-                    Explore matcha cafes across Malaysia. Use the filters above, click "View Map" to see locations, "Submit Cafe" to add a new one, or "About" to learn more about Matcham.
+                    Explore matcha cafes across Malaysia. Use the filters above. Click a cafe for details.
                   </p>
 
                   {currentCafesToDisplay.length > 0 ? (
-                    <div className="space-y-4">
+                     <div className="space-y-4">
                       {currentCafesToDisplay.map((cafe) => (
                         <Card
                           key={cafe.id}
                           onClick={() => handleCafeSelect(cafe)}
-                          className={`cursor-pointer group overflow-hidden shadow-md hover:shadow-lg transition-all duration-200 ease-in-out rounded-lg bg-card hover:bg-card/90 w-full ${selectedCafe?.id === cafe.id ? "ring-2 ring-primary" : ""}`}
+                          className={`cursor-pointer group overflow-hidden shadow-md hover:shadow-lg transition-all duration-200 ease-in-out rounded-lg bg-card hover:bg-card/90 w-full ${selectedCafe?.id === cafe.id ? "ring-2 ring-primary" : "ring-1 ring-border"}`}
                           tabIndex={0}
                           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCafeSelect(cafe);}}
                           role="button"
@@ -388,8 +421,8 @@ export default function HomePage() {
                                   fill={true}
                                   sizes="(max-width: 639px) 100vw, (max-width: 767px) 12rem, 16rem"
                                   style={{objectFit: 'cover'}}
-                                  data-ai-hint={cafe.dataAiHint || "cafe matcha"}
                                   className="group-hover:scale-105 transition-transform duration-300 ease-in-out rounded-t-lg sm:rounded-l-lg sm:rounded-t-none"
+                                  data-ai-hint={cafe.dataAiHint || "cafe matcha"}
                                 />
                               ) : (
                                 <div className="w-full h-full bg-muted flex items-center justify-center rounded-t-lg sm:rounded-l-lg sm:rounded-t-none">
@@ -470,3 +503,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
