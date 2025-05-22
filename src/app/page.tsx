@@ -14,7 +14,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger, // Added DialogTrigger
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -22,7 +21,7 @@ import {
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger as DropdownMenuPrimitiveTrigger, // Renamed to avoid conflict if needed, but DropdownMenuTrigger is more standard
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   Select,
@@ -36,7 +35,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger as SheetPrimitiveTrigger, // Renamed to avoid conflict if needed
+  SheetTrigger, 
 } from "@/components/ui/sheet";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -116,6 +115,8 @@ export default function HomePage() {
             const pageNumberOfSelectedCafe = Math.floor(cafeIndex / cafesPerPage) + 1;
             setCurrentPage(pageNumberOfSelectedCafe);
         }
+    } else {
+      setCurrentPage(1); // Reset to first page when clearing selection
     }
   }, [filteredCafes, cafesPerPage]);
 
@@ -158,7 +159,7 @@ export default function HomePage() {
 
   const handleCafeSubmission = async () => {
     setIsSubmissionDialogOpen(false);
-    fetchCafesData(); // Re-fetch cafes to include the newly submitted one (after it's approved and moved)
+    fetchCafesData(); 
   };
 
   const handleScrollToExplore = () => {
@@ -210,10 +211,7 @@ export default function HomePage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  handleCafeSelect(null);
-                  setCurrentPage(1); // Reset to first page when clearing selection
-                }}
+                onClick={() => handleCafeSelect(null) }
                 className="hover:bg-accent/10 hover:text-accent-foreground border-accent text-accent flex items-center shadow-sm"
                 aria-label="Clear selection and view cafe list"
               >
@@ -249,35 +247,37 @@ export default function HomePage() {
 
           {/* Mobile Hamburger Menu */}
           <div className="md:hidden">
-            <SheetPrimitiveTrigger asChild>
+            <Sheet>
+              <SheetTrigger asChild>
                 <Button variant="outline" size="icon" className="shadow-sm">
                   <Menu className="h-5 w-5" />
                   <span className="sr-only">Open menu</span>
                 </Button>
-              </SheetPrimitiveTrigger>
-            <SheetContent side="right">
-              <SheetHeader>
-                <SheetTitle>Menu</SheetTitle>
-              </SheetHeader>
-              <nav className="flex flex-col space-y-3 mt-6">
-                <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsMapDialogOpen(true); }}>
-                  <MapIcon className="w-4 h-4 mr-2" />
-                  View Map
-                </Button>
-                <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsSubmissionDialogOpen(true); }}>
-                  <PlusCircle className="w-4 h-4 mr-2" />
-                  Submit Cafe
-                </Button>
-                <Link href="/about" passHref legacyBehavior>
-                  <Button variant="ghost" className="w-full justify-start" asChild>
-                     <a>
-                      <Info className="w-4 h-4 mr-2" />
-                      About
-                     </a>
+              </SheetTrigger>
+              <SheetContent side="right">
+                <SheetHeader>
+                  <SheetTitle>Menu</SheetTitle>
+                </SheetHeader>
+                <nav className="flex flex-col space-y-3 mt-6">
+                  <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsMapDialogOpen(true); }}>
+                    <MapIcon className="w-4 h-4 mr-2" />
+                    View Map
                   </Button>
-                </Link>
-              </nav>
-            </SheetContent>
+                  <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsSubmissionDialogOpen(true); }}>
+                    <PlusCircle className="w-4 h-4 mr-2" />
+                    Submit Cafe
+                  </Button>
+                  <Link href="/about" passHref legacyBehavior>
+                    <Button variant="ghost" className="w-full justify-start" asChild>
+                       <a>
+                        <Info className="w-4 h-4 mr-2" />
+                        About
+                       </a>
+                    </Button>
+                  </Link>
+                </nav>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </header>
@@ -362,12 +362,12 @@ export default function HomePage() {
                   <div>
                     <Label className="text-sm font-medium text-card-foreground block mb-1">Additional Tags</Label>
                     <DropdownMenu>
-                      <DropdownMenuPrimitiveTrigger asChild>
+                      <DropdownMenuTrigger asChild>
                         <Button variant="outline" className="w-full justify-between bg-input hover:bg-muted/80 focus:ring-ring">
                           {selectedTagsFilter.length > 0 ? `${selectedTagsFilter.length} tag(s) selected` : "Filter by Tags"}
                           <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
                         </Button>
-                      </DropdownMenuPrimitiveTrigger>
+                      </DropdownMenuTrigger>
                       <DropdownMenuContent className="w-64">
                         <DropdownMenuLabel>Select Tags</DropdownMenuLabel>
                         <DropdownMenuSeparator />
