@@ -10,4 +10,12 @@ export interface Cafe {
   rating: number;
   image: string;
   dataAiHint?: string; // For placeholder image keyword hint
+  state: string; // Added state
+  tags?: string[]; // Added tags
+  socialMediaLinks?: { // Added social media links
+    website?: string;
+    instagram?: string;
+    facebook?: string;
+  };
 }
+
