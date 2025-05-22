@@ -44,7 +44,7 @@ function HomePage() {
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
   const [isSubmissionDialogOpen, setIsSubmissionDialogOpen] = useState(false);
 
-  const { toggleSidebar, isMobile, state: sidebarState } = useSidebar();
+  // const { toggleSidebar, isMobile, state: sidebarState } = useSidebar(); // toggleSidebar no longer needed for desktop
 
   useEffect(() => {
     // Only run on client
@@ -112,7 +112,7 @@ function HomePage() {
       <div className="flex h-screen overflow-hidden">
         <Sidebar 
           variant="sidebar" 
-          collapsible="icon"
+          collapsible="none" // Changed from "icon" to "none"
           className="border-r border-sidebar-border shadow-md flex-shrink-0"
         >
           <SidebarHeader className="p-4 border-b border-sidebar-border">
@@ -137,6 +137,7 @@ function HomePage() {
                     availableStates={malaysianStates}
                   />
                 </div>
+                {/* Icon-only version for collapsed sidebar - this will be hidden now */}
                 <div className="hidden group-data-[collapsible=icon]:flex justify-center py-2">
                   <Tooltip>
                       <TooltipTrigger asChild>
@@ -165,6 +166,7 @@ function HomePage() {
                     </div>
                   </ScrollArea>
                 </div>
+                 {/* Icon-only version for collapsed sidebar - this will be hidden now */}
                 <div className="hidden group-data-[collapsible=icon]:flex justify-center py-2">
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -187,6 +189,7 @@ function HomePage() {
                 <div className="group-data-[collapsible=icon]:hidden">
                   <AiConciergeForm cafes={filteredCafes} />
                 </div>
+                {/* Icon-only version for collapsed sidebar - this will be hidden now */}
                 <div className="hidden group-data-[collapsible=icon]:flex justify-center py-2">
                   <Tooltip>
                       <TooltipTrigger asChild>
@@ -241,7 +244,7 @@ function HomePage() {
                       cafes={filteredCafes}
                       onMarkerClick={(cafe) => {
                         handleCafeSelect(cafe);
-                        // setIsMapDialogOpen(false); 
+                        // setIsMapDialogOpen(false); // Optional: close dialog on marker click
                       }}
                       selectedCafe={selectedCafe}
                       initialCenter={initialMapCenter}
@@ -249,7 +252,7 @@ function HomePage() {
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full bg-muted text-destructive-foreground p-4">
-                        Map disabled due to missing or invalid API key.
+                        Map disabled due to missing or invalid API key. Check console for details.
                     </div>
                   )}
                   </div>
@@ -271,10 +274,7 @@ function HomePage() {
                 </DialogContent>
               </Dialog>
 
-              <Button variant="outline" onClick={toggleSidebar} className="shadow-sm hidden md:flex">
-                  <Filter className="w-4 h-4 mr-2" />
-                  {sidebarState === "expanded" ? "Hide Panel" : "Show Panel"}
-              </Button>
+              {/* Removed the desktop "Hide/Show Panel" button */}
             </div>
           </div>
           
@@ -283,7 +283,7 @@ function HomePage() {
               <Terminal className="h-4 w-4" />
               <AlertTitle>Configuration Error</AlertTitle>
               <AlertDescription>
-                Google Maps API Key is missing or invalid. Please set a valid <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> in your <code>.env</code> file and ensure the Maps JavaScript API is enabled in your Google Cloud Console. The map may not be functional.
+                Google Maps API Key is missing or invalid. Please set a valid <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> in your <code>.env</code> file and ensure the Maps JavaScript API is enabled in your Google Cloud Console. The map feature may not be functional.
               </AlertDescription>
             </Alert>
           )}
@@ -298,7 +298,7 @@ function HomePage() {
                     {filteredCafes.length} Matcha Cafes Found
                   </h1>
                   <p className="text-muted-foreground mb-4 text-sm">
-                    {selectedState === "All" ? "Across Malaysia" : `In ${selectedState}`}{minRating > 0 ? ` with ${minRating}+ stars rating.` : "."} Explore below, click "View Map", or submit a new cafe.
+                    {selectedState === "All" ? "Across Malaysia" : `In ${selectedState}`}{minRating > 0 ? ` with ${minRating}+ stars rating.` : "."} Explore below, click "View Map" to see locations, or "Submit Cafe" to add a new one.
                   </p>
                   
                   {filteredCafes.length > 0 ? (
@@ -365,7 +365,7 @@ function HomePage() {
 
 const HomePageWithSidebar: React.FC = () => {
   return (
-    <SidebarProvider defaultOpen={true}>
+    <SidebarProvider defaultOpen={true}> {/* Ensures sidebar is open by default */}
       <HomePage />
     </SidebarProvider>
   );
