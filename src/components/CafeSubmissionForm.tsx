@@ -19,6 +19,7 @@ import type { HalalStatus, Cafe } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { addCafe } from '@/services/cafeService';
 import { Loader2, UploadCloud, MapPin } from 'lucide-react';
+import Link from 'next/link';
 
 const cafeSubmissionSchema = z.object({
   name: z.string().min(3, { message: "Cafe name must be at least 3 characters." }),
@@ -27,8 +28,8 @@ const cafeSubmissionSchema = z.object({
   latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude").optional(),
   longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude").optional(),
   logoLink: z.string().url({ message: "Please enter a valid URL for the logo." }).optional().or(z.literal('')),
-  halalStatus: z.enum(halalStatusesList.map(s => s.id) as [HalalStatus, ...HalalStatus[]], { 
-    required_error: "Please select a halal status." 
+  halalStatus: z.enum(halalStatusesList.map(s => s.id) as [HalalStatus, ...HalalStatus[]], {
+    required_error: "Please select a halal status."
   }),
   tags: z.array(z.string()).optional(),
   openingHours: z.string().min(5, { message: "Opening hours information seems too short." }),
@@ -40,7 +41,10 @@ const cafeSubmissionSchema = z.object({
   socialWhatsapp: z.string()
     .regex(/^(https:\/\/wa\.me\/\S+|^\d{10,15}$)/, { message: "Enter a valid WhatsApp link (e.g., https://wa.me/60123456789) or phone number."})
     .optional().or(z.literal('')),
-  rating: z.number().default(0), 
+  rating: z.number().default(0),
+  termsAccepted: z.boolean().refine(value => value === true, {
+    message: "You must accept the terms and conditions to submit a cafe."
+  }),
 });
 
 type CafeSubmissionFormData = z.infer<typeof cafeSubmissionSchema>;
@@ -54,18 +58,19 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
     resolver: zodResolver(cafeSubmissionSchema),
     defaultValues: {
       tags: [],
-      rating: 0, 
+      rating: 0,
+      termsAccepted: false,
     }
   });
   const { toast } = useToast();
 
   const onSubmit: SubmitHandler<CafeSubmissionFormData> = async (formData) => {
-    const cafeDataForDb: Partial<Omit<Cafe, 'id'>> = { // Use Partial for conditional assignment
+    const cafeDataForDb: Partial<Omit<Cafe, 'id'>> = {
       name: formData.name,
       address: formData.address,
       state: formData.state,
-      latitude: formData.latitude || 0, 
-      longitude: formData.longitude || 0, 
+      latitude: formData.latitude || 0,
+      longitude: formData.longitude || 0,
       openingHours: formData.openingHours,
       rating: formData.rating,
       halalStatus: formData.halalStatus,
@@ -74,6 +79,8 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
 
     if (formData.logoLink && formData.logoLink.trim() !== '') {
       cafeDataForDb.logoLink = formData.logoLink;
+    } else {
+      delete cafeDataForDb.logoLink; // Ensure undefined is not sent
     }
 
     const socialLinks: Cafe['socialMediaLinks'] = {};
@@ -86,11 +93,12 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
 
     if (Object.keys(socialLinks).length > 0) {
       cafeDataForDb.socialMediaLinks = socialLinks;
+    } else {
+      delete cafeDataForDb.socialMediaLinks; // Ensure undefined is not sent
     }
-    
-    // Cast to Omit<Cafe, 'id'> after conditional assignments for addCafe function signature
+
     const newCafeId = await addCafe(cafeDataForDb as Omit<Cafe, 'id'>);
-    
+
     if (newCafeId) {
       toast({
         title: "Submission Received! 🍵✨",
@@ -116,13 +124,13 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
       <CardHeader className="px-1 pt-0 text-center md:text-left">
         <CardTitle className="text-xl md:text-2xl">Submit Your Matcha Café to Our Directory! 🍵✨</CardTitle>
         <CardDescription className="text-sm">
-          We’re excited to feature authentic matcha cafés that serve delicious Japanese matcha drinks and desserts. 
+          We’re excited to feature authentic matcha cafés that serve delicious Japanese matcha drinks and desserts.
           Please fill in the details below so fellow matcha lovers can find and enjoy your spot!
         </CardDescription>
       </CardHeader>
       <CardContent className="px-1 pb-0">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-h-[70vh] overflow-y-auto pr-3">
-          
+
           <div className="space-y-2">
             <h3 className="text-lg font-semibold">1. Café Name</h3>
             <Label htmlFor="name">Please enter just the café’s name (no slogans or extra text).</Label>
@@ -133,7 +141,7 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
           <div className="space-y-2">
             <h3 className="text-lg font-semibold flex items-center"><MapPin className="w-5 h-5 mr-2 text-primary" /> 2. Location</h3>
             <p className="text-sm text-muted-foreground">
-              If your café is listed on Google Maps, ensure the address matches. 
+              If your café is listed on Google Maps, ensure the address matches.
               For mobile or pop-up vendors not on Google Maps, please enter exact coordinates if possible.
             </p>
             <div>
@@ -244,7 +252,7 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
             />
             {errors.tags && <p className="text-xs text-destructive mt-1">{errors.tags.message}</p>}
           </div>
-          
+
           <div className="space-y-2">
             <h3 className="text-lg font-semibold">6. Share Your Social Media Links</h3>
             <p className="text-sm text-muted-foreground">Let visitors see your menu, updates, and beautiful matcha photos:</p>
@@ -282,10 +290,35 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
             </div>
           </div>
 
+          <div className="space-y-3 pt-4 border-t">
+            <div className="flex items-start space-x-2">
+              <Controller
+                name="termsAccepted"
+                control={control}
+                render={({ field }) => (
+                  <Checkbox
+                    id="termsAccepted"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    className="mt-1"
+                  />
+                )}
+              />
+              <Label htmlFor="termsAccepted" className="text-sm font-normal leading-snug">
+                I agree to the <Link href="/terms" className="underline text-primary hover:text-accent" target="_blank">Terms of Service</Link> and <Link href="/privacy" className="underline text-primary hover:text-accent" target="_blank">Privacy Policy</Link>.
+              </Label>
+            </div>
+            {errors.termsAccepted && <p className="text-xs text-destructive mt-1">{errors.termsAccepted.message}</p>}
+            <p className="text-xs text-muted-foreground">
+              You agree to our Terms of Service and Privacy Policy.
+            </p>
+          </div>
+
+
           <p className="text-sm text-muted-foreground pt-4 border-t">
             Thank you for sharing your love of matcha with our community! We review submissions carefully to keep our directory authentic and welcoming.
           </p>
-          
+
           <div className="pt-2 pb-4">
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

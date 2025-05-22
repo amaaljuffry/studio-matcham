@@ -20,12 +20,12 @@ export default function AboutPage() {
           <InfoIcon className="w-6 h-6 mr-2" /> About Matcham
         </h1>
         {/* Spacer to balance the back button, adjust width as needed */}
-        <div className="w-36 sm:w-48"></div> 
+        <div className="w-36 sm:w-48"></div>
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="mx-auto w-full md:max-w-3xl space-y-10">
-          
+
           <section aria-labelledby="welcome-heading">
             <h2 id="welcome-heading" className="text-2xl font-semibold text-primary mb-3">Welcome to Matcham</h2>
             <div className="space-y-3 text-muted-foreground">
@@ -77,6 +77,13 @@ export default function AboutPage() {
             </p>
           </section>
         </div>
+         <footer className="text-center p-4 mt-8 border-t border-border">
+          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Matcham. All rights reserved.</p>
+          <nav className="mt-2 space-x-4">
+            <Link href="/terms" className="text-xs text-primary hover:underline">Terms of Service</Link>
+            <Link href="/privacy" className="text-xs text-primary hover:underline">Privacy Policy</Link>
+          </nav>
+        </footer>
       </main>
     </div>
   );

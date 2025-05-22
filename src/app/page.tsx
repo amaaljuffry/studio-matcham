@@ -3,9 +3,8 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import type { Cafe } from "@/types";
-// import { mockCafes } from "@/data/cafes"; // No longer using mockCafes directly here
 import { malaysianStates, halalStatusesList, additionalTagsList } from "@/data/cafes";
-import { getCafes, addCafe } from "@/services/cafeService"; // Import Firestore service
+import { getCafes, addCafe } from "@/services/cafeService";
 import { CafeDetailsCard } from "@/components/cafe-details-card";
 import { CafeSubmissionForm } from "@/components/CafeSubmissionForm";
 import { Button } from "@/components/ui/button";
@@ -55,10 +54,10 @@ export default function HomePage() {
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string | undefined>(undefined);
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
   const [isSubmissionDialogOpen, setIsSubmissionDialogOpen] = useState(false);
-  
+
   // Filter states
   const [selectedStateFilter, setSelectedStateFilter] = useState<string>("All");
-  const [selectedHalalFilter, setSelectedHalalFilter] = useState<string>("All"); 
+  const [selectedHalalFilter, setSelectedHalalFilter] = useState<string>("All");
   const [selectedTagsFilter, setSelectedTagsFilter] = useState<string[]>([]);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -95,29 +94,29 @@ export default function HomePage() {
     }
 
     if (selectedTagsFilter.length > 0) {
-      cafes = cafes.filter(cafe => 
+      cafes = cafes.filter(cafe =>
         selectedTagsFilter.every(tag => cafe.tags?.includes(tag))
       );
     }
     return cafes;
   }, [allCafes, selectedStateFilter, selectedHalalFilter, selectedTagsFilter]);
-  
+
   useEffect(() => {
     if (selectedCafe && !filteredCafes.find(c => c.id === selectedCafe.id)) {
-      setSelectedCafe(null); 
+      setSelectedCafe(null);
     }
-    setCurrentPage(1); 
+    setCurrentPage(1);
   }, [filteredCafes, selectedCafe === null]);
 
 
   const handleCafeSelect = useCallback((cafe: Cafe | null) => {
     setSelectedCafe(cafe);
-    if (cafe === null) { 
+    if (cafe === null) {
       setCurrentPage(1);
     }
   }, []);
-  
-  const initialMapCenter = useMemo(() => ({ lat: 3.1390, lng: 101.6869 }), []); 
+
+  const initialMapCenter = useMemo(() => ({ lat: 3.1390, lng: 101.6869 }), []);
   const initialMapZoom = 10;
 
   const indexOfLastCafe = currentPage * cafesPerPage;
@@ -152,11 +151,9 @@ export default function HomePage() {
       return newTags;
     });
   };
-  
+
   const handleCafeSubmission = async () => {
-    // This function will be called by CafeSubmissionForm upon successful submission
-    // to refresh the cafe list.
-    setIsSubmissionDialogOpen(false); // Close dialog
+    setIsSubmissionDialogOpen(false);
     setIsLoadingCafes(true);
     const cafesFromDb = await getCafes();
     setAllCafes(cafesFromDb);
@@ -175,10 +172,10 @@ export default function HomePage() {
           {googleMapsApiKey ? (
             <CafeMap
               apiKey={googleMapsApiKey}
-              cafes={allCafes} 
+              cafes={allCafes}
               onMarkerClick={(cafe) => {
                 handleCafeSelect(cafe);
-                setIsMapDialogOpen(false); 
+                setIsMapDialogOpen(false);
               }}
               selectedCafe={selectedCafe}
               initialCenter={initialMapCenter}
@@ -222,7 +219,7 @@ export default function HomePage() {
             </div>
           )}
         </div>
-        
+
         <div className="flex items-center gap-2">
           {/* Desktop Buttons */}
           <div className="hidden md:flex items-center gap-2">
@@ -235,7 +232,7 @@ export default function HomePage() {
               <PlusCircle className="w-4 h-4 mr-2" />
               Submit Cafe
             </Button>
-            
+
             <Link href="/about" passHref>
               <Button variant="outline" size="sm" className="shadow-sm">
                 <Info className="w-4 h-4 mr-2" />
@@ -280,7 +277,7 @@ export default function HomePage() {
           </div>
         </div>
       </header>
-      
+
       {!googleMapsApiKey && (
         <Alert variant="destructive" className="m-4 shrink-0">
           <Terminal className="h-4 w-4" />
@@ -290,7 +287,7 @@ export default function HomePage() {
           </AlertDescription>
         </Alert>
       )}
-      
+
       <ScrollArea className="flex-1 overflow-y-auto">
         <div className="p-4 mx-auto w-full md:w-3/4">
           {selectedCafe ? (
@@ -368,7 +365,7 @@ export default function HomePage() {
                   <p className="text-muted-foreground mb-4 text-sm">
                     Explore matcha cafes across Malaysia. Use the filters above, click "View Map" to see locations, "Submit Cafe" to add a new one, or "About" to learn more about Matcham.
                   </p>
-                  
+
                   {currentCafesToDisplay.length > 0 ? (
                     <div className="space-y-4">
                       {currentCafesToDisplay.map((cafe) => (
@@ -460,8 +457,16 @@ export default function HomePage() {
             </div>
           )}
         </div>
+        {!selectedCafe && (
+          <footer className="text-center p-4 mt-8 border-t border-border">
+            <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Matcham. All rights reserved.</p>
+            <nav className="mt-2 space-x-4">
+              <Link href="/terms" className="text-xs text-primary hover:underline">Terms of Service</Link>
+              <Link href="/privacy" className="text-xs text-primary hover:underline">Privacy Policy</Link>
+            </nav>
+          </footer>
+        )}
       </ScrollArea>
     </div>
   );
 }
-
