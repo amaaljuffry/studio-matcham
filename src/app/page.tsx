@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import type { Cafe } from "@/types";
-import { mockCafes } from "@/data/cafes";
+import type { Cafe, HalalStatus } from "@/types";
+import { mockCafes, malaysianStates, halalStatusesList, additionalTagsList } from "@/data/cafes";
 import { CafeDetailsCard } from "@/components/cafe-details-card";
 import { CafeSubmissionForm } from "@/components/CafeSubmissionForm";
 import { Button } from "@/components/ui/button";
@@ -15,10 +15,26 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Leaf, XCircle, MapIcon, Terminal, PlusCircle, Filter as FilterIcon, ChevronLeft, ChevronRight, Info } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Leaf, XCircle, MapIcon, Terminal, PlusCircle, Filter as FilterIcon, ChevronLeft, ChevronRight, Info, ChevronDown } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -29,22 +45,46 @@ function HomePage() {
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string | undefined>(undefined);
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
   const [isSubmissionDialogOpen, setIsSubmissionDialogOpen] = useState(false);
+  
+  // Filter states
+  const [selectedStateFilter, setSelectedStateFilter] = useState<string>("All");
+  const [selectedHalalFilter, setSelectedHalalFilter] = useState<string>("All"); // HalalStatus | "All"
+  const [selectedTagsFilter, setSelectedTagsFilter] = useState<string[]>([]);
+
   const [currentPage, setCurrentPage] = useState(1);
   const cafesPerPage = 10;
-
 
   useEffect(() => {
     // Only run on client
     setGoogleMapsApiKey(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
   }, []);
 
-  // Reset to first page if allCafes changes or selectedCafe changes to null (back to list)
+  const filteredCafes = useMemo(() => {
+    let cafes = [...allCafes];
+
+    if (selectedStateFilter !== "All") {
+      cafes = cafes.filter(cafe => cafe.state === selectedStateFilter);
+    }
+
+    if (selectedHalalFilter !== "All") {
+      cafes = cafes.filter(cafe => cafe.halalStatus === selectedHalalFilter);
+    }
+
+    if (selectedTagsFilter.length > 0) {
+      cafes = cafes.filter(cafe => 
+        selectedTagsFilter.every(tag => cafe.tags?.includes(tag))
+      );
+    }
+    return cafes;
+  }, [allCafes, selectedStateFilter, selectedHalalFilter, selectedTagsFilter]);
+  
+  // Reset to first page if filters or selectedCafe (cleared) changes
   useEffect(() => {
-    if (selectedCafe && !allCafes.find(c => c.id === selectedCafe.id)) {
+    if (selectedCafe && !filteredCafes.find(c => c.id === selectedCafe.id)) {
       setSelectedCafe(null); 
     }
     setCurrentPage(1); 
-  }, [allCafes, selectedCafe === null]);
+  }, [filteredCafes, selectedCafe === null]);
 
 
   const handleCafeSelect = useCallback((cafe: Cafe | null) => {
@@ -58,10 +98,10 @@ function HomePage() {
   const indexOfLastCafe = currentPage * cafesPerPage;
   const indexOfFirstCafe = indexOfLastCafe - cafesPerPage;
   const currentCafesToDisplay = useMemo(() => {
-    return allCafes.slice(indexOfFirstCafe, indexOfLastCafe);
-  }, [allCafes, indexOfFirstCafe, indexOfLastCafe]);
+    return filteredCafes.slice(indexOfFirstCafe, indexOfLastCafe);
+  }, [filteredCafes, indexOfFirstCafe, indexOfLastCafe]);
 
-  const totalPages = Math.ceil(allCafes.length / cafesPerPage);
+  const totalPages = Math.ceil(filteredCafes.length / cafesPerPage);
 
   const handleNextPage = () => {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
@@ -71,9 +111,25 @@ function HomePage() {
     setCurrentPage((prev) => Math.max(prev - 1, 1));
   };
 
+  const handleStateFilterChange = (value: string) => {
+    setSelectedStateFilter(value);
+  };
+
+  const handleHalalFilterChange = (value: string) => {
+    setSelectedHalalFilter(value);
+  };
+
+  const handleTagFilterChange = (tagLabel: string) => {
+    setSelectedTagsFilter(prevTags => {
+      const newTags = prevTags.includes(tagLabel)
+        ? prevTags.filter(t => t !== tagLabel)
+        : [...prevTags, tagLabel];
+      return newTags;
+    });
+  };
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground">
+    <div className="flex flex-col min-h-screen bg-background text-foreground">
       <header className="p-4 border-b border-border flex justify-between items-center sticky top-0 bg-background/80 backdrop-blur-sm z-20">
         <div className="flex items-center gap-2">
            {selectedCafe ? (
@@ -113,7 +169,7 @@ function HomePage() {
                 // Actual map component is commented out as per previous requests, but API key logic retained
                 // <CafeMap
                 //   apiKey={googleMapsApiKey}
-                //   cafes={allCafes} 
+                //   cafes={allCafes} // Consider passing filteredCafes if you want map markers to update
                 //   onMarkerClick={(cafe) => {
                 //     handleCafeSelect(cafe);
                 //     setIsMapDialogOpen(false); 
@@ -171,11 +227,71 @@ function HomePage() {
             <CafeDetailsCard cafe={selectedCafe} />
           ) : (
             <div>
+              <div className="mb-6 p-4 border border-border rounded-lg shadow-sm bg-card">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+                  <div>
+                    <Label htmlFor="state-filter" className="text-sm font-medium text-card-foreground">State</Label>
+                    <Select value={selectedStateFilter} onValueChange={handleStateFilterChange}>
+                      <SelectTrigger id="state-filter" className="mt-1 w-full bg-background hover:bg-muted/80 focus:ring-ring">
+                        <SelectValue placeholder="Filter by State" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="All">All States</SelectItem>
+                        {malaysianStates.map(state => (
+                          <SelectItem key={state} value={state}>{state}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="halal-filter" className="text-sm font-medium text-card-foreground">Halal Status</Label>
+                    <Select value={selectedHalalFilter} onValueChange={handleHalalFilterChange}>
+                      <SelectTrigger id="halal-filter" className="mt-1 w-full bg-background hover:bg-muted/80 focus:ring-ring">
+                        <SelectValue placeholder="Filter by Halal Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="All">All Halal Statuses</SelectItem>
+                        {halalStatusesList.map(status => (
+                          <SelectItem key={status.id} value={status.id}>{status.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-card-foreground block mb-1">Additional Tags</Label>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between bg-background hover:bg-muted/80 focus:ring-ring">
+                          {selectedTagsFilter.length > 0 ? `${selectedTagsFilter.length} tag(s) selected` : "Filter by Tags"}
+                          <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-64">
+                        <DropdownMenuLabel>Select Tags</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {additionalTagsList.map(tag => (
+                          <DropdownMenuCheckboxItem
+                            key={tag.id}
+                            checked={selectedTagsFilter.includes(tag.label)}
+                            onCheckedChange={() => handleTagFilterChange(tag.label)}
+                          >
+                            {tag.label}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              </div>
+
+
               <h1 className="text-xl md:text-2xl font-bold mb-1 text-primary">
-                {allCafes.length} Matcha Cafes Found
+                {filteredCafes.length} Matcha Cafes Found
               </h1>
               <p className="text-muted-foreground mb-4 text-sm">
-                Explore matcha cafes across Malaysia. Click "View Map" to see locations, "Submit Cafe" to add a new one, or "About" to learn more about Matcham.
+                Explore matcha cafes across Malaysia. Use the filters above, click "View Map" to see locations, "Submit Cafe" to add a new one, or "About" to learn more about Matcham.
               </p>
               
               {currentCafesToDisplay.length > 0 ? (
@@ -232,7 +348,7 @@ function HomePage() {
                   <FilterIcon className="w-12 h-12 text-muted-foreground mb-4" />
                   <h2 className="text-lg font-semibold text-foreground mb-2">No Cafes Found</h2>
                   <p className="text-sm text-muted-foreground">
-                    Consider submitting a new cafe to our directory!
+                    Try adjusting your filters or submit a new cafe to our directory!
                   </p>
                 </div>
               )}
