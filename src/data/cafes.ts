@@ -70,4 +70,17 @@ export const mockCafes: Cafe[] = [
     image: 'https://placehold.co/600x400.png',
     dataAiHint: 'modern restaurant',
   },
+  {
+    id: '7',
+    name: 'Serene Matcha Spot',
+    address: '15, Jalan Hijau, Taman Damai, 50480 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur',
+    latitude: 3.1600,
+    longitude: 101.7000,
+    openingHours: '10 AM - 9 PM',
+    // No menuLink for this one
+    rating: 4.3,
+    image: 'https://placehold.co/600x400.png',
+    dataAiHint: 'zen garden',
+  },
 ];
+
