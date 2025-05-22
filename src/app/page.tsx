@@ -2,8 +2,10 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import type { Cafe, HalalStatus } from "@/types";
-import { mockCafes, malaysianStates, halalStatusesList, additionalTagsList } from "@/data/cafes";
+import type { Cafe } from "@/types";
+// import { mockCafes } from "@/data/cafes"; // No longer using mockCafes directly here
+import { malaysianStates, halalStatusesList, additionalTagsList } from "@/data/cafes";
+import { getCafes, addCafe } from "@/services/cafeService"; // Import Firestore service
 import { CafeDetailsCard } from "@/components/cafe-details-card";
 import { CafeSubmissionForm } from "@/components/CafeSubmissionForm";
 import { Button } from "@/components/ui/button";
@@ -13,7 +15,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  // DialogTrigger, // No longer needed for header buttons
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -41,14 +42,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
-import { Leaf, XCircle, MapIcon, Terminal, PlusCircle, Filter as FilterIcon, ChevronLeft, ChevronRight, Info, ChevronDown, Menu } from "lucide-react";
+import { Leaf, XCircle, MapIcon, Terminal, PlusCircle, Filter as FilterIcon, ChevronLeft, ChevronRight, Info, ChevronDown, Menu, Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { CafeMap } from "@/components/cafe-map";
 
 
 export default function HomePage() {
-  const [allCafes] = useState<Cafe[]>(mockCafes);
+  const [allCafes, setAllCafes] = useState<Cafe[]>([]);
+  const [isLoadingCafes, setIsLoadingCafes] = useState(true);
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string | undefined>(undefined);
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
@@ -61,6 +63,16 @@ export default function HomePage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const cafesPerPage = 10;
+
+  useEffect(() => {
+    const fetchCafes = async () => {
+      setIsLoadingCafes(true);
+      const cafesFromDb = await getCafes();
+      setAllCafes(cafesFromDb);
+      setIsLoadingCafes(false);
+    };
+    fetchCafes();
+  }, []);
 
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -140,6 +152,17 @@ export default function HomePage() {
       return newTags;
     });
   };
+  
+  const handleCafeSubmission = async () => {
+    // This function will be called by CafeSubmissionForm upon successful submission
+    // to refresh the cafe list.
+    setIsSubmissionDialogOpen(false); // Close dialog
+    setIsLoadingCafes(true);
+    const cafesFromDb = await getCafes();
+    setAllCafes(cafesFromDb);
+    setIsLoadingCafes(false);
+  };
+
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
@@ -175,7 +198,7 @@ export default function HomePage() {
            <DialogHeader className="pb-3">
             <DialogTitle>Submit a New Matcha Cafe</DialogTitle>
           </DialogHeader>
-          <CafeSubmissionForm onFormSubmit={() => setIsSubmissionDialogOpen(false)} />
+          <CafeSubmissionForm onFormSubmit={handleCafeSubmission} />
         </DialogContent>
       </Dialog>
 
@@ -212,7 +235,7 @@ export default function HomePage() {
               <PlusCircle className="w-4 h-4 mr-2" />
               Submit Cafe
             </Button>
-
+            
             <Link href="/about" passHref>
               <Button variant="outline" size="sm" className="shadow-sm">
                 <Info className="w-4 h-4 mr-2" />
@@ -333,99 +356,106 @@ export default function HomePage() {
                 </div>
               </div>
 
-
-              <h1 className="text-xl md:text-2xl font-bold mb-1 text-primary">
-                {filteredCafes.length} Matcha Cafes Found
-              </h1>
-              <p className="text-muted-foreground mb-4 text-sm">
-                Explore matcha cafes across Malaysia. Use the filters above, click "View Map" to see locations, "Submit Cafe" to add a new one, or "About" to learn more about Matcham.
-              </p>
-              
-              {currentCafesToDisplay.length > 0 ? (
-                <div className="space-y-4">
-                  {currentCafesToDisplay.map((cafe) => (
-                    <Card
-                      key={cafe.id}
-                      onClick={() => handleCafeSelect(cafe)}
-                      className={`cursor-pointer group overflow-hidden shadow-md hover:shadow-lg transition-all duration-200 ease-in-out rounded-lg bg-card hover:bg-card/90 w-full ${selectedCafe?.id === cafe.id ? "ring-2 ring-primary" : ""}`}
-                      tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCafeSelect(cafe);}}
-                      role="button"
-                      aria-label={`View details for ${cafe.name}`}
-                      aria-pressed={selectedCafe?.id === cafe.id}
-                    >
-                      <div className="flex flex-col sm:flex-row items-stretch">
-                        <div className="relative sm:w-48 md:w-64 h-48 sm:h-auto flex-shrink-0">
-                          {cafe.logoLink ? (
-                            <Image
-                              src={cafe.logoLink}
-                              alt={`Logo of ${cafe.name}`}
-                              fill={true}
-                              sizes="(max-width: 639px) 100vw, (max-width: 767px) 12rem, 16rem"
-                              style={{objectFit: 'cover'}}
-                              data-ai-hint={cafe.dataAiHint || "cafe matcha"}
-                              className="group-hover:scale-105 transition-transform duration-300 ease-in-out rounded-t-lg sm:rounded-l-lg sm:rounded-t-none"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-muted flex items-center justify-center rounded-t-lg sm:rounded-l-lg sm:rounded-t-none">
-                              <Leaf className="w-12 h-12 text-muted-foreground" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-grow flex flex-col">
-                          <CardContent className="p-4 flex flex-col h-full">
-                            <div>
-                              <h3 className="font-semibold text-lg mb-1 text-card-foreground group-hover:text-primary transition-colors">{cafe.name}</h3>
-                              <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{cafe.address}</p>
-                            </div>
-                            <div className="flex items-center justify-between text-sm mt-auto pt-2">
-                              <Badge variant="outline" className="border-accent text-accent bg-accent/10 px-2 py-1">
-                                {cafe.rating} ★
-                              </Badge>
-                              <span className="text-muted-foreground">{cafe.state}</span>
-                            </div>
-                          </CardContent>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
+              {isLoadingCafes ? (
+                <div className="flex justify-center items-center h-64">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-64 bg-muted/50 rounded-lg p-8 text-center">
-                  <FilterIcon className="w-12 h-12 text-muted-foreground mb-4" />
-                  <h2 className="text-lg font-semibold text-foreground mb-2">No Cafes Found</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Try adjusting your filters or submit a new cafe to our directory!
+                <>
+                  <h1 className="text-xl md:text-2xl font-bold mb-1 text-primary">
+                    {filteredCafes.length} Matcha Cafes Found
+                  </h1>
+                  <p className="text-muted-foreground mb-4 text-sm">
+                    Explore matcha cafes across Malaysia. Use the filters above, click "View Map" to see locations, "Submit Cafe" to add a new one, or "About" to learn more about Matcham.
                   </p>
-                </div>
-              )}
+                  
+                  {currentCafesToDisplay.length > 0 ? (
+                    <div className="space-y-4">
+                      {currentCafesToDisplay.map((cafe) => (
+                        <Card
+                          key={cafe.id}
+                          onClick={() => handleCafeSelect(cafe)}
+                          className={`cursor-pointer group overflow-hidden shadow-md hover:shadow-lg transition-all duration-200 ease-in-out rounded-lg bg-card hover:bg-card/90 w-full ${selectedCafe?.id === cafe.id ? "ring-2 ring-primary" : ""}`}
+                          tabIndex={0}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCafeSelect(cafe);}}
+                          role="button"
+                          aria-label={`View details for ${cafe.name}`}
+                          aria-pressed={selectedCafe?.id === cafe.id}
+                        >
+                          <div className="flex flex-col sm:flex-row items-stretch">
+                            <div className="relative sm:w-48 md:w-64 h-48 sm:h-auto flex-shrink-0">
+                              {cafe.logoLink ? (
+                                <Image
+                                  src={cafe.logoLink}
+                                  alt={`Logo of ${cafe.name}`}
+                                  fill={true}
+                                  sizes="(max-width: 639px) 100vw, (max-width: 767px) 12rem, 16rem"
+                                  style={{objectFit: 'cover'}}
+                                  data-ai-hint={cafe.dataAiHint || "cafe matcha"}
+                                  className="group-hover:scale-105 transition-transform duration-300 ease-in-out rounded-t-lg sm:rounded-l-lg sm:rounded-t-none"
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-muted flex items-center justify-center rounded-t-lg sm:rounded-l-lg sm:rounded-t-none">
+                                  <Leaf className="w-12 h-12 text-muted-foreground" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-grow flex flex-col">
+                              <CardContent className="p-4 flex flex-col h-full">
+                                <div>
+                                  <h3 className="font-semibold text-lg mb-1 text-card-foreground group-hover:text-primary transition-colors">{cafe.name}</h3>
+                                  <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{cafe.address}</p>
+                                </div>
+                                <div className="flex items-center justify-between text-sm mt-auto pt-2">
+                                  <Badge variant="outline" className="border-accent text-accent bg-accent/10 px-2 py-1">
+                                    {cafe.rating} ★
+                                  </Badge>
+                                  <span className="text-muted-foreground">{cafe.state}</span>
+                                </div>
+                              </CardContent>
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-64 bg-muted/50 rounded-lg p-8 text-center">
+                      <FilterIcon className="w-12 h-12 text-muted-foreground mb-4" />
+                      <h2 className="text-lg font-semibold text-foreground mb-2">No Cafes Found</h2>
+                      <p className="text-sm text-muted-foreground">
+                        Try adjusting your filters or submit a new cafe to our directory!
+                      </p>
+                    </div>
+                  )}
 
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center space-x-4 mt-8 mb-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handlePrevPage}
-                    disabled={currentPage === 1}
-                    className="shadow-sm"
-                  >
-                    <ChevronLeft className="w-4 h-4 mr-2" />
-                    Previous
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleNextPage}
-                    disabled={currentPage === totalPages}
-                    className="shadow-sm"
-                  >
-                    Next
-                    <ChevronRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </div>
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-center space-x-4 mt-8 mb-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePrevPage}
+                        disabled={currentPage === 1}
+                        className="shadow-sm"
+                      >
+                        <ChevronLeft className="w-4 h-4 mr-2" />
+                        Previous
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleNextPage}
+                        disabled={currentPage === totalPages}
+                        className="shadow-sm"
+                      >
+                        Next
+                        <ChevronRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

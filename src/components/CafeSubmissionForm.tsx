@@ -14,8 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { malaysianStates, additionalTagsList, halalStatusesList } from '@/data/cafes';
-import type { HalalStatus } from '@/types';
+import type { HalalStatus, Cafe } from '@/types'; // Import Cafe type
 import { useToast } from '@/hooks/use-toast';
+import { addCafe } from '@/services/cafeService'; // Import Firestore service
 import { Loader2, UploadCloud, MapPin } from 'lucide-react';
 
 const cafeSubmissionSchema = z.object({
@@ -25,7 +26,7 @@ const cafeSubmissionSchema = z.object({
   latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude").optional(),
   longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude").optional(),
   logoLink: z.string().url({ message: "Please enter a valid URL for the logo." }).optional().or(z.literal('')),
-  halalStatus: z.enum(halalStatusesList.map(s => s.id) as [HalalStatus, ...HalalStatus[]], { // Ensure Zod gets a non-empty array of string literals
+  halalStatus: z.enum(halalStatusesList.map(s => s.id) as [HalalStatus, ...HalalStatus[]], { 
     required_error: "Please select a halal status." 
   }),
   tags: z.array(z.string()).optional(),
@@ -38,6 +39,8 @@ const cafeSubmissionSchema = z.object({
   socialWhatsapp: z.string()
     .regex(/^(https:\/\/wa\.me\/\S+|^\d{10,15}$)/, { message: "Enter a valid WhatsApp link (e.g., https://wa.me/60123456789) or phone number."})
     .optional().or(z.literal('')),
+  // Add rating to schema, but it won't be user-editable, set to 0 by default
+  rating: z.number().default(0), 
 });
 
 type CafeSubmissionFormData = z.infer<typeof cafeSubmissionSchema>;
@@ -51,43 +54,51 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
     resolver: zodResolver(cafeSubmissionSchema),
     defaultValues: {
       tags: [],
+      rating: 0, // Default rating for new submissions
     }
   });
   const { toast } = useToast();
 
   const onSubmit: SubmitHandler<CafeSubmissionFormData> = async (formData) => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const processedData = {
-      id: String(Date.now()), // Temporary ID
+    // Map flat form data to the Cafe structure, especially nested socialMediaLinks
+    const cafeDataForDb: Omit<Cafe, 'id'> = {
       name: formData.name,
       address: formData.address,
       state: formData.state,
-      latitude: formData.latitude || 0, // Default if not provided
+      latitude: formData.latitude || 0, // Default if not provided or handle as truly optional in DB
       longitude: formData.longitude || 0, // Default if not provided
       openingHours: formData.openingHours,
-      rating: 0, // New submissions start with 0 rating, to be reviewed
-      logoLink: formData.logoLink,
+      rating: formData.rating, // Will be 0 from defaultValues
+      logoLink: formData.logoLink || undefined, // Ensure empty string becomes undefined
       halalStatus: formData.halalStatus,
       tags: formData.tags,
       socialMediaLinks: {
-        website: formData.websiteLink,
-        instagram: formData.socialInstagram,
-        facebook: formData.socialFacebook,
-        twitter: formData.socialTwitter,
-        tiktok: formData.socialTiktok,
-        whatsapp: formData.socialWhatsapp,
+        website: formData.websiteLink || undefined,
+        instagram: formData.socialInstagram || undefined,
+        facebook: formData.socialFacebook || undefined,
+        twitter: formData.socialTwitter || undefined,
+        tiktok: formData.socialTiktok || undefined,
+        whatsapp: formData.socialWhatsapp || undefined,
       }
     };
 
-    console.log("Cafe Submission Data (Processed):", processedData);
-    toast({
-      title: "Submission Received! 🍵✨",
-      description: `${formData.name} has been submitted for review. Thank you for sharing!`,
-    });
-    reset();
-    if (onFormSubmit) {
-      onFormSubmit();
+    const newCafeId = await addCafe(cafeDataForDb);
+    
+    if (newCafeId) {
+      toast({
+        title: "Submission Received! 🍵✨",
+        description: `${formData.name} has been submitted for review. Thank you for sharing!`,
+      });
+      reset();
+      if (onFormSubmit) {
+        onFormSubmit();
+      }
+    } else {
+      toast({
+        title: "Submission Failed",
+        description: `Could not submit ${formData.name}. Please try again.`,
+        variant: "destructive",
+      });
     }
   };
 
