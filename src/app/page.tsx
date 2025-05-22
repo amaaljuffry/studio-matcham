@@ -117,7 +117,7 @@ export default function HomePage() {
 
   useEffect(() => {
     setCurrentPage(1); // Reset to first page when filters change
-  }, [selectedStateFilter, selectedHalalFilter, selectedTagsFilter, fetchCafesData]); // Added fetchCafesData dependency to reset page if allCafes changes
+  }, [selectedStateFilter, selectedHalalFilter, selectedTagsFilter, fetchCafesData]);
 
 
   const handleCafeSelect = useCallback((cafe: Cafe | null) => {
@@ -126,13 +126,10 @@ export default function HomePage() {
         const cafeIndex = filteredCafes.findIndex(c => c.id === cafe.id);
         if (cafeIndex !== -1) {
             const pageNumberOfSelectedCafe = Math.floor(cafeIndex / cafesPerPage) + 1;
-            if (currentPage !== pageNumberOfSelectedCafe) { // Only set if page actually changes
+            if (currentPage !== pageNumberOfSelectedCafe) {
               setCurrentPage(pageNumberOfSelectedCafe);
             }
         }
-    } else {
-      // No specific cafe selected, remain on current page or reset if coming from detail view on different page
-      // The useEffect for filter changes already handles resetting to page 1.
     }
   }, [filteredCafes, cafesPerPage, currentPage]);
 
@@ -175,7 +172,7 @@ export default function HomePage() {
 
   const handleCafeSubmission = async () => {
     setIsSubmissionDialogOpen(false);
-    fetchCafesData(); 
+    fetchCafesData();
   };
 
   const handleScrollToExplore = () => {
@@ -186,22 +183,22 @@ export default function HomePage() {
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <Dialog open={isMapDialogOpen} onOpenChange={setIsMapDialogOpen}>
-        <DialogContent className="p-0 w-screen h-screen max-w-none rounded-none border-0 shadow-none flex flex-col overflow-hidden">
-          <DialogHeader className="p-4 border-b bg-card z-10 flex-shrink-0">
+        <DialogContent className="w-[50vw] min-w-[300px] h-[50vh] min-h-[300px] flex flex-col p-0">
+          <DialogHeader className="p-4 border-b flex-shrink-0">
             <DialogTitle>Matcha Cafe Map</DialogTitle>
           </DialogHeader>
           <div className="flex-grow overflow-hidden">
           {googleMapsApiKey ? (
             <CafeMap
               apiKey={googleMapsApiKey}
-              cafes={allCafes} 
+              cafes={allCafes}
               onMarkerClick={(cafe) => {
                 handleCafeSelect(cafe);
-                setIsMapDialogOpen(false); 
+                setIsMapDialogOpen(false);
               }}
               selectedCafe={selectedCafe}
               initialCenter={initialMapCenter}
-              initialZoom={initialMapZoom}
+              initialZoom={initialZoom}
             />
           ) : (
             <div className="flex items-center justify-center h-full bg-muted text-destructive-foreground p-4">
@@ -520,3 +517,5 @@ export default function HomePage() {
   );
 }
 
+
+    
