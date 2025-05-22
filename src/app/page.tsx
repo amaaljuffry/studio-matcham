@@ -264,6 +264,9 @@ function HomePage() {
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl">
+                   <DialogHeader className="pb-3">
+                    <DialogTitle>Submit a New Matcha Cafe</DialogTitle>
+                  </DialogHeader>
                   <CafeSubmissionForm onFormSubmit={() => setIsSubmissionDialogOpen(false)} />
                 </DialogContent>
               </Dialog>
