@@ -18,13 +18,13 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Leaf, XCircle, MapIcon, Terminal, PlusCircle, Filter as FilterIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Leaf, XCircle, MapIcon, Terminal, PlusCircle, Filter as FilterIcon, ChevronLeft, ChevronRight, Info } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 
 
 function HomePage() {
   const [allCafes] = useState<Cafe[]>(mockCafes);
-  const [filteredCafes, setFilteredCafes] = useState<Cafe[]>(allCafes);
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string | undefined>(undefined);
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
@@ -38,13 +38,13 @@ function HomePage() {
     setGoogleMapsApiKey(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
   }, []);
 
+  // Reset to first page if allCafes changes or selectedCafe changes to null (back to list)
   useEffect(() => {
-    setFilteredCafes(allCafes);
     if (selectedCafe && !allCafes.find(c => c.id === selectedCafe.id)) {
       setSelectedCafe(null); 
     }
-    setCurrentPage(1); // Reset to first page if allCafes changes
-  }, [allCafes, selectedCafe]);
+    setCurrentPage(1); 
+  }, [allCafes, selectedCafe === null]); // Added selectedCafe === null condition
 
 
   const handleCafeSelect = useCallback((cafe: Cafe | null) => {
@@ -58,10 +58,10 @@ function HomePage() {
   const indexOfLastCafe = currentPage * cafesPerPage;
   const indexOfFirstCafe = indexOfLastCafe - cafesPerPage;
   const currentCafesToDisplay = useMemo(() => {
-    return filteredCafes.slice(indexOfFirstCafe, indexOfLastCafe);
-  }, [filteredCafes, indexOfFirstCafe, indexOfLastCafe]);
+    return allCafes.slice(indexOfFirstCafe, indexOfLastCafe);
+  }, [allCafes, indexOfFirstCafe, indexOfLastCafe]);
 
-  const totalPages = Math.ceil(filteredCafes.length / cafesPerPage);
+  const totalPages = Math.ceil(allCafes.length / cafesPerPage);
 
   const handleNextPage = () => {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
@@ -113,7 +113,7 @@ function HomePage() {
                 // Actual map component is commented out as per previous requests, but API key logic retained
                 // <CafeMap
                 //   apiKey={googleMapsApiKey}
-                //   cafes={filteredCafes} // Or allCafes if map should always show all
+                //   cafes={allCafes} 
                 //   onMarkerClick={(cafe) => {
                 //     handleCafeSelect(cafe);
                 //     setIsMapDialogOpen(false); 
@@ -145,6 +145,13 @@ function HomePage() {
               <CafeSubmissionForm onFormSubmit={() => setIsSubmissionDialogOpen(false)} />
             </DialogContent>
           </Dialog>
+
+          <Link href="/about" passHref>
+            <Button variant="outline" size="sm" className="shadow-sm">
+              <Info className="w-4 h-4 mr-2" />
+              About
+            </Button>
+          </Link>
         </div>
       </header>
       
@@ -165,10 +172,10 @@ function HomePage() {
           ) : (
             <div>
               <h1 className="text-xl md:text-2xl font-bold mb-1 text-primary">
-                {filteredCafes.length} Matcha Cafes Found
+                {allCafes.length} Matcha Cafes Found
               </h1>
               <p className="text-muted-foreground mb-4 text-sm">
-                Explore matcha cafes across Malaysia. Click "View Map" to see locations, or "Submit Cafe" to add a new one.
+                Explore matcha cafes across Malaysia. Click "View Map" to see locations, "Submit Cafe" to add a new one, or "About" to learn more about Matcham.
               </p>
               
               {currentCafesToDisplay.length > 0 ? (
@@ -266,5 +273,3 @@ function HomePage() {
 }
 
 export default HomePage;
-
-    
