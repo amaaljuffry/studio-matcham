@@ -2,7 +2,8 @@
 "use client";
 
 import React from 'react';
-import { useForm, SubmitHandler, Controller } from 'react-hook-form';
+import type { SubmitHandler } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -14,9 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { malaysianStates, additionalTagsList, halalStatusesList } from '@/data/cafes';
-import type { HalalStatus, Cafe } from '@/types'; // Import Cafe type
+import type { HalalStatus, Cafe } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { addCafe } from '@/services/cafeService'; // Import Firestore service
+import { addCafe } from '@/services/cafeService';
 import { Loader2, UploadCloud, MapPin } from 'lucide-react';
 
 const cafeSubmissionSchema = z.object({
@@ -39,7 +40,6 @@ const cafeSubmissionSchema = z.object({
   socialWhatsapp: z.string()
     .regex(/^(https:\/\/wa\.me\/\S+|^\d{10,15}$)/, { message: "Enter a valid WhatsApp link (e.g., https://wa.me/60123456789) or phone number."})
     .optional().or(z.literal('')),
-  // Add rating to schema, but it won't be user-editable, set to 0 by default
   rating: z.number().default(0), 
 });
 
@@ -54,35 +54,42 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
     resolver: zodResolver(cafeSubmissionSchema),
     defaultValues: {
       tags: [],
-      rating: 0, // Default rating for new submissions
+      rating: 0, 
     }
   });
   const { toast } = useToast();
 
   const onSubmit: SubmitHandler<CafeSubmissionFormData> = async (formData) => {
-    // Map flat form data to the Cafe structure, especially nested socialMediaLinks
-    const cafeDataForDb: Omit<Cafe, 'id'> = {
+    const cafeDataForDb: Partial<Omit<Cafe, 'id'>> = { // Use Partial for conditional assignment
       name: formData.name,
       address: formData.address,
       state: formData.state,
-      latitude: formData.latitude || 0, // Default if not provided or handle as truly optional in DB
-      longitude: formData.longitude || 0, // Default if not provided
+      latitude: formData.latitude || 0, 
+      longitude: formData.longitude || 0, 
       openingHours: formData.openingHours,
-      rating: formData.rating, // Will be 0 from defaultValues
-      logoLink: formData.logoLink || undefined, // Ensure empty string becomes undefined
+      rating: formData.rating,
       halalStatus: formData.halalStatus,
       tags: formData.tags,
-      socialMediaLinks: {
-        website: formData.websiteLink || undefined,
-        instagram: formData.socialInstagram || undefined,
-        facebook: formData.socialFacebook || undefined,
-        twitter: formData.socialTwitter || undefined,
-        tiktok: formData.socialTiktok || undefined,
-        whatsapp: formData.socialWhatsapp || undefined,
-      }
     };
 
-    const newCafeId = await addCafe(cafeDataForDb);
+    if (formData.logoLink && formData.logoLink.trim() !== '') {
+      cafeDataForDb.logoLink = formData.logoLink;
+    }
+
+    const socialLinks: Cafe['socialMediaLinks'] = {};
+    if (formData.websiteLink && formData.websiteLink.trim() !== '') socialLinks.website = formData.websiteLink;
+    if (formData.socialInstagram && formData.socialInstagram.trim() !== '') socialLinks.instagram = formData.socialInstagram;
+    if (formData.socialFacebook && formData.socialFacebook.trim() !== '') socialLinks.facebook = formData.socialFacebook;
+    if (formData.socialTwitter && formData.socialTwitter.trim() !== '') socialLinks.twitter = formData.socialTwitter;
+    if (formData.socialTiktok && formData.socialTiktok.trim() !== '') socialLinks.tiktok = formData.socialTiktok;
+    if (formData.socialWhatsapp && formData.socialWhatsapp.trim() !== '') socialLinks.whatsapp = formData.socialWhatsapp;
+
+    if (Object.keys(socialLinks).length > 0) {
+      cafeDataForDb.socialMediaLinks = socialLinks;
+    }
+    
+    // Cast to Omit<Cafe, 'id'> after conditional assignments for addCafe function signature
+    const newCafeId = await addCafe(cafeDataForDb as Omit<Cafe, 'id'>);
     
     if (newCafeId) {
       toast({
@@ -116,7 +123,6 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
       <CardContent className="px-1 pb-0">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-h-[70vh] overflow-y-auto pr-3">
           
-          {/* Section 1: Café Name */}
           <div className="space-y-2">
             <h3 className="text-lg font-semibold">1. Café Name</h3>
             <Label htmlFor="name">Please enter just the café’s name (no slogans or extra text).</Label>
@@ -124,7 +130,6 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
             {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
           </div>
 
-          {/* Section 2: Location */}
           <div className="space-y-2">
             <h3 className="text-lg font-semibold flex items-center"><MapPin className="w-5 h-5 mr-2 text-primary" /> 2. Location</h3>
             <p className="text-sm text-muted-foreground">
@@ -175,7 +180,6 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
             </div>
           </div>
 
-          {/* Section 3: Upload Your Logo */}
           <div className="space-y-2">
             <h3 className="text-lg font-semibold flex items-center"><UploadCloud className="w-5 h-5 mr-2 text-primary" /> 3. Upload Your Logo</h3>
             <Label htmlFor="logoLink">If you’re the owner, provide a link (URL) to your café’s logo to help visitors recognize you.</Label>
@@ -184,7 +188,6 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
             {errors.logoLink && <p className="text-xs text-destructive mt-1">{errors.logoLink.message}</p>}
           </div>
 
-          {/* Section 4: Halal Status */}
           <div className="space-y-2">
             <h3 className="text-lg font-semibold">4. Halal Status (Important for Muslim Customers)</h3>
             <p className="text-sm text-muted-foreground">Please select the halal status of your café. If you have halal certification, please contact us on Instagram for official verification.</p>
@@ -211,7 +214,6 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
             {errors.halalStatus && <p className="text-xs text-destructive mt-1">{errors.halalStatus.message}</p>}
           </div>
 
-          {/* Section 5: Additional Tags */}
           <div className="space-y-2">
             <h3 className="text-lg font-semibold">5. Additional Tags</h3>
             <p className="text-sm text-muted-foreground">Help matcha fans find your café by selecting tags that apply:</p>
@@ -243,7 +245,6 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
             {errors.tags && <p className="text-xs text-destructive mt-1">{errors.tags.message}</p>}
           </div>
           
-          {/* Section 6: Share Your Social Media Links */}
           <div className="space-y-2">
             <h3 className="text-lg font-semibold">6. Share Your Social Media Links</h3>
             <p className="text-sm text-muted-foreground">Let visitors see your menu, updates, and beautiful matcha photos:</p>
