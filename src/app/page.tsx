@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import type { Cafe } from "@/types";
 import { mockCafes } from "@/data/cafes";
 import { CafeDetailsCard } from "@/components/cafe-details-card";
-import { CafeMap } from "@/components/cafe-map";
+// import { CafeMap } from "@/components/cafe-map"; // Removed
 import { CafeSubmissionForm } from "@/components/CafeSubmissionForm";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -21,20 +21,31 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Leaf, XCircle, MapIcon, Terminal, PlusCircle, Filter as FilterIcon } from "lucide-react";
 import Image from "next/image";
+// import { SidebarProvider, Sidebar, SidebarTrigger, SidebarHeader, SidebarContent, SidebarFooter, useSidebar } from "@/components/ui/sidebar";
+// import { CafeFilterOptions } from "@/components/cafe-filter-options";
+// import { AiConciergeForm } from "@/components/ai-concierge-form";
+// import { Separator } from "@/components/ui/separator";
+// import { TooltipProvider } from "@/components/ui/tooltip";
+
 
 function HomePage() {
   const [allCafes] = useState<Cafe[]>(mockCafes);
+  // const [minRating, setMinRating] = useState(0); // Removed
+  // const [selectedState, setSelectedState] = useState("All"); // Removed
   const [filteredCafes, setFilteredCafes] = useState<Cafe[]>(allCafes);
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string | undefined>(undefined);
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
   const [isSubmissionDialogOpen, setIsSubmissionDialogOpen] = useState(false);
+  // const { isMobile, setOpen: setSidebarOpen, open: isSidebarOpen } = useSidebar();
+
 
   useEffect(() => {
     // Only run on client
     setGoogleMapsApiKey(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
   }, []);
 
+  // useEffect for filtering - simplified as filters are removed
   useEffect(() => {
     setFilteredCafes(allCafes);
     if (selectedCafe && !allCafes.find(c => c.id === selectedCafe.id)) {
@@ -42,12 +53,18 @@ function HomePage() {
     }
   }, [allCafes, selectedCafe]);
 
+
   const handleCafeSelect = useCallback((cafe: Cafe | null) => {
     setSelectedCafe(cafe);
   }, []);
   
   const initialMapCenter = useMemo(() => ({ lat: 3.1390, lng: 101.6869 }), []); 
   const initialMapZoom = 10;
+
+  // const availableStates = useMemo(() => {
+  //   const states = new Set(allCafes.map(cafe => cafe.state));
+  //   return Array.from(states).sort();
+  // }, [allCafes]);
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
@@ -85,7 +102,11 @@ function HomePage() {
                 <DialogTitle>Matcha Cafe Map</DialogTitle>
               </DialogHeader>
               <div className="h-[calc(100%-57px)]">
-              {googleMapsApiKey ? (
+              {/* 
+                The CafeMap component is currently commented out as per earlier request to remove the map.
+                If you want to re-enable it in the dialog, uncomment this section.
+              */}
+              {/* {googleMapsApiKey ? (
                 <CafeMap
                   apiKey={googleMapsApiKey}
                   cafes={filteredCafes}
@@ -98,11 +119,12 @@ function HomePage() {
                   initialCenter={initialMapCenter}
                   initialZoom={initialMapZoom}
                 />
-              ) : (
+              ) : ( */}
                 <div className="flex items-center justify-center h-full bg-muted text-destructive-foreground p-4">
-                    Map disabled due to missing or invalid API key. Check console for details.
+                    Map feature is currently under review. Check back soon!
+                    {/* Or, if API key is the issue: Map disabled due to missing or invalid API key. Check console for details. */}
                 </div>
-              )}
+              {/* )} */}
               </div>
             </DialogContent>
           </Dialog>
@@ -115,7 +137,7 @@ function HomePage() {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl">
-               <DialogHeader className="pb-3">
+              <DialogHeader className="pb-3">
                 <DialogTitle>Submit a New Matcha Cafe</DialogTitle>
               </DialogHeader>
               <CafeSubmissionForm onFormSubmit={() => setIsSubmissionDialogOpen(false)} />
@@ -148,45 +170,51 @@ function HomePage() {
               </p>
               
               {filteredCafes.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="space-y-4"> {/* Changed from grid to space-y-4 for single column list */}
                   {filteredCafes.map((cafe) => (
                     <Card
                       key={cafe.id}
                       onClick={() => handleCafeSelect(cafe)}
-                      className={`cursor-pointer group overflow-hidden shadow-md hover:shadow-xl transition-all duration-200 ease-in-out rounded-lg bg-card hover:bg-card/90 ${selectedCafe?.id === cafe.id ? "ring-2 ring-primary" : ""}`}
+                      className={`cursor-pointer group overflow-hidden shadow-md hover:shadow-lg transition-all duration-200 ease-in-out rounded-lg bg-card hover:bg-card/90 w-full ${selectedCafe?.id === cafe.id ? "ring-2 ring-primary" : ""}`}
                       tabIndex={0}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCafeSelect(cafe);}}
                       role="button"
                       aria-label={`View details for ${cafe.name}`}
                       aria-pressed={selectedCafe?.id === cafe.id}
                     >
-                      <div className="relative w-full h-32 md:h-40 overflow-hidden">
-                        {cafe.logoLink ? (
-                           <Image
-                            src={cafe.logoLink}
-                            alt={`Logo of ${cafe.name}`}
-                            fill={true}
-                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
-                            style={{objectFit: 'cover'}}
-                            data-ai-hint={cafe.dataAiHint || "cafe matcha"}
-                            className="group-hover:scale-105 transition-transform duration-300 ease-in-out"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-muted flex items-center justify-center">
-                            <Leaf className="w-10 h-10 text-muted-foreground" />
-                          </div>
-                        )}
-                      </div>
-                      <CardContent className="p-3">
-                        <h3 className="font-semibold text-md mb-1 text-card-foreground truncate">{cafe.name}</h3>
-                        <p className="text-xs text-muted-foreground truncate mb-1">{cafe.address}</p>
-                        <div className="flex items-center justify-between text-xs">
-                          <Badge variant="outline" className="border-accent text-accent bg-accent/10 px-1.5 py-0.5">
-                            {cafe.rating} ★
-                          </Badge>
-                          <span className="text-muted-foreground">{cafe.state}</span>
+                      <div className="flex flex-col sm:flex-row items-stretch"> {/* Card internal layout: stacked on mobile, row on sm+ */}
+                        <div className="relative sm:w-48 md:w-64 h-48 sm:h-auto flex-shrink-0"> {/* Image container */}
+                          {cafe.logoLink ? (
+                            <Image
+                              src={cafe.logoLink}
+                              alt={`Logo of ${cafe.name}`}
+                              fill={true}
+                              sizes="(max-width: 639px) 100vw, (max-width: 767px) 12rem, 16rem"
+                              style={{objectFit: 'cover'}}
+                              data-ai-hint={cafe.dataAiHint || "cafe matcha"}
+                              className="group-hover:scale-105 transition-transform duration-300 ease-in-out rounded-t-lg sm:rounded-l-lg sm:rounded-t-none"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-muted flex items-center justify-center rounded-t-lg sm:rounded-l-lg sm:rounded-t-none">
+                              <Leaf className="w-12 h-12 text-muted-foreground" />
+                            </div>
+                          )}
                         </div>
-                      </CardContent>
+                        <div className="flex-grow flex flex-col"> {/* Content container */}
+                          <CardContent className="p-4 flex flex-col h-full">
+                            <div>
+                              <h3 className="font-semibold text-lg mb-1 text-card-foreground group-hover:text-primary transition-colors">{cafe.name}</h3>
+                              <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{cafe.address}</p>
+                            </div>
+                            <div className="flex items-center justify-between text-sm mt-auto pt-2">
+                              <Badge variant="outline" className="border-accent text-accent bg-accent/10 px-2 py-1">
+                                {cafe.rating} ★
+                              </Badge>
+                              <span className="text-muted-foreground">{cafe.state}</span>
+                            </div>
+                          </CardContent>
+                        </div>
+                      </div>
                     </Card>
                   ))}
                 </div>
@@ -208,3 +236,33 @@ function HomePage() {
 }
 
 export default HomePage;
+
+// Wrapper component to provide Sidebar context - removed as sidebar is removed
+// const HomePageWithSidebar = () => {
+//   return (
+//     <TooltipProvider>
+//       <SidebarProvider defaultOpen={false}>
+//         <Sidebar collapsible="none" side="left" variant="sidebar" className="p-0">
+//           <SidebarHeader className="p-4 items-center justify-center">
+//             <div className="flex items-center gap-2">
+//               <Leaf className="h-7 w-7 text-sidebar-primary" />
+//               <span className="text-xl font-semibold text-sidebar-primary">MatchaMe</span>
+//             </div>
+//           </SidebarHeader>
+//           <SidebarContent className="p-0">
+//             {/* Filters and other sidebar content removed */}
+//           </SidebarContent>
+//           <SidebarFooter className="p-4 mt-auto border-t border-sidebar-border">
+//             <p className="text-xs text-sidebar-foreground/70 text-center">
+//               &copy; {new Date().getFullYear()} MatchaMe
+//             </p>
+//           </SidebarFooter>
+//         </Sidebar>
+//         <div className="flex flex-col flex-1 min-w-0">
+//           <HomePage />
+//         </div>
+//       </SidebarProvider>
+//     </TooltipProvider>
+//   );
+// };
+// export default HomePageWithSidebar;
