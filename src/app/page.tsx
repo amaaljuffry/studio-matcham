@@ -133,7 +133,7 @@ export default function HomePage() {
     } else {
       // When deselecting, if not on first page, reset to first page
       // to show the top of the list if the user was deep in pagination.
-      if (currentPage !== 1) {
+      if (currentPage !== 1 && filteredCafes.length > cafesPerPage) { // Only reset if there's more than one page
         // setCurrentPage(1); // Optionally reset to page 1 when clearing selection
       }
     }
@@ -141,7 +141,7 @@ export default function HomePage() {
 
 
   const initialMapCenter = useMemo(() => ({ lat: 3.1390, lng: 101.6869 }), []); // KL Center
-  const initialZoom = 7; // Define initialZoom
+  const initialZoom = 7;
 
   const indexOfLastCafe = currentPage * cafesPerPage;
   const indexOfFirstCafe = indexOfLastCafe - cafesPerPage;
@@ -301,20 +301,18 @@ export default function HomePage() {
         </div>
       </header>
 
-      {!googleMapsApiKey && (
-        <Alert variant="destructive" className="m-4 shrink-0">
-          <Terminal className="h-4 w-4" />
-          <AlertTitle>Configuration Error</AlertTitle>
-          <AlertDescription>
-            Google Maps API Key is missing or invalid. Please set a valid <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> in your <code>.env</code> file and ensure the Maps JavaScript API is enabled (and billing active) in your Google Cloud Console. The map feature may not be functional.
-          </AlertDescription>
-        </Alert>
-      )}
-
       <ScrollArea className="flex-1 overflow-y-auto">
+        {!googleMapsApiKey && (
+          <Alert variant="destructive" className="m-4 shrink-0">
+            <Terminal className="h-4 w-4" />
+            <AlertTitle>Configuration Error</AlertTitle>
+            <AlertDescription>
+              Google Maps API Key is missing or invalid. Please set a valid <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> in your <code>.env</code> file and ensure the Maps JavaScript API is enabled (and billing active) in your Google Cloud Console. The map feature may not be functional.
+            </AlertDescription>
+          </Alert>
+        )}
         <section className="bg-gradient-to-br from-primary/10 via-background to-accent/5 text-center py-10 md:py-16 px-4">
           <div className="mx-auto w-full max-w-2xl">
-            {/* Leaf icon removed */}
             <h1 className="text-3xl md:text-4xl font-bold text-primary mb-3">
               Matcham
             </h1>
@@ -323,7 +321,7 @@ export default function HomePage() {
             </p>
             <div className="flex flex-col sm:flex-row justify-center items-center gap-3">
               <Button
-                size="default" // Changed from lg
+                size="default"
                 onClick={handleScrollToExplore}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transform hover:scale-105 transition-transform duration-200 ease-in-out w-full sm:w-auto"
               >
@@ -331,7 +329,7 @@ export default function HomePage() {
               </Button>
               <Button
                 variant="outline"
-                size="default" // Changed from lg
+                size="default"
                 onClick={() => setIsSubmissionDialogOpen(true)}
                 className="border-accent text-accent hover:bg-accent/10 hover:text-accent-foreground shadow-md transform hover:scale-105 transition-transform duration-200 ease-in-out w-full sm:w-auto"
               >
@@ -509,16 +507,17 @@ export default function HomePage() {
             </div>
           )}
         </div>
-        {!selectedCafe && (
-          <footer className="text-center p-4 mt-8 border-t border-border">
-            <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Matcham. All rights reserved.</p>
-            <nav className="mt-2 space-x-4">
-              <Link href="/terms" className="text-xs text-primary hover:underline">Terms of Service</Link>
-              <Link href="/privacy" className="text-xs text-primary hover:underline">Privacy Policy</Link>
-            </nav>
-          </footer>
-        )}
       </ScrollArea>
+      {!selectedCafe && (
+        <footer className="text-center p-4 border-t border-border">
+          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Matcham. All rights reserved.</p>
+          <nav className="mt-2 space-x-4">
+            <Link href="/terms" className="text-xs text-primary hover:underline">Terms of Service</Link>
+            <Link href="/privacy" className="text-xs text-primary hover:underline">Privacy Policy</Link>
+          </nav>
+        </footer>
+      )}
     </div>
   );
 }
+
