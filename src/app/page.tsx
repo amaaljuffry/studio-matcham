@@ -5,7 +5,6 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import type { Cafe } from "@/types";
 import { mockCafes } from "@/data/cafes";
 import { CafeDetailsCard } from "@/components/cafe-details-card";
-// import { CafeMap } from "@/components/cafe-map"; // Removed
 import { CafeSubmissionForm } from "@/components/CafeSubmissionForm";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -21,23 +20,15 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Leaf, XCircle, MapIcon, Terminal, PlusCircle, Filter as FilterIcon } from "lucide-react";
 import Image from "next/image";
-// import { SidebarProvider, Sidebar, SidebarTrigger, SidebarHeader, SidebarContent, SidebarFooter, useSidebar } from "@/components/ui/sidebar";
-// import { CafeFilterOptions } from "@/components/cafe-filter-options";
-// import { AiConciergeForm } from "@/components/ai-concierge-form";
-// import { Separator } from "@/components/ui/separator";
-// import { TooltipProvider } from "@/components/ui/tooltip";
 
 
 function HomePage() {
   const [allCafes] = useState<Cafe[]>(mockCafes);
-  // const [minRating, setMinRating] = useState(0); // Removed
-  // const [selectedState, setSelectedState] = useState("All"); // Removed
   const [filteredCafes, setFilteredCafes] = useState<Cafe[]>(allCafes);
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string | undefined>(undefined);
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
   const [isSubmissionDialogOpen, setIsSubmissionDialogOpen] = useState(false);
-  // const { isMobile, setOpen: setSidebarOpen, open: isSidebarOpen } = useSidebar();
 
 
   useEffect(() => {
@@ -45,7 +36,6 @@ function HomePage() {
     setGoogleMapsApiKey(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
   }, []);
 
-  // useEffect for filtering - simplified as filters are removed
   useEffect(() => {
     setFilteredCafes(allCafes);
     if (selectedCafe && !allCafes.find(c => c.id === selectedCafe.id)) {
@@ -60,11 +50,6 @@ function HomePage() {
   
   const initialMapCenter = useMemo(() => ({ lat: 3.1390, lng: 101.6869 }), []); 
   const initialMapZoom = 10;
-
-  // const availableStates = useMemo(() => {
-  //   const states = new Set(allCafes.map(cafe => cafe.state));
-  //   return Array.from(states).sort();
-  // }, [allCafes]);
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
@@ -157,7 +142,7 @@ function HomePage() {
       )}
       
       <ScrollArea className="flex-1 overflow-y-auto">
-        <div className="p-4">
+        <div className="p-4 mx-auto w-full md:w-3/4">
           {selectedCafe ? (
             <CafeDetailsCard cafe={selectedCafe} />
           ) : (
@@ -236,33 +221,3 @@ function HomePage() {
 }
 
 export default HomePage;
-
-// Wrapper component to provide Sidebar context - removed as sidebar is removed
-// const HomePageWithSidebar = () => {
-//   return (
-//     <TooltipProvider>
-//       <SidebarProvider defaultOpen={false}>
-//         <Sidebar collapsible="none" side="left" variant="sidebar" className="p-0">
-//           <SidebarHeader className="p-4 items-center justify-center">
-//             <div className="flex items-center gap-2">
-//               <Leaf className="h-7 w-7 text-sidebar-primary" />
-//               <span className="text-xl font-semibold text-sidebar-primary">MatchaMe</span>
-//             </div>
-//           </SidebarHeader>
-//           <SidebarContent className="p-0">
-//             {/* Filters and other sidebar content removed */}
-//           </SidebarContent>
-//           <SidebarFooter className="p-4 mt-auto border-t border-sidebar-border">
-//             <p className="text-xs text-sidebar-foreground/70 text-center">
-//               &copy; {new Date().getFullYear()} MatchaMe
-//             </p>
-//           </SidebarFooter>
-//         </Sidebar>
-//         <div className="flex flex-col flex-1 min-w-0">
-//           <HomePage />
-//         </div>
-//       </SidebarProvider>
-//     </TooltipProvider>
-//   );
-// };
-// export default HomePageWithSidebar;
