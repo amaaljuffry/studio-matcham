@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import type { SubmitHandler } from 'react-hook-form';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,7 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { malaysianStates, additionalTagsList, halalStatusesList } from '@/data/cafes';
 import type { HalalStatus, Cafe } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { addCafe } from '@/services/cafeService';
+import { addCafeToPending, generateCafeId } from '@/services/cafeService'; // Updated service
 import { Loader2, UploadCloud, MapPin } from 'lucide-react';
 import Link from 'next/link';
 
@@ -27,7 +27,7 @@ const cafeSubmissionSchema = z.object({
   state: z.string().min(1, { message: "Please select a state." }),
   latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude").optional(),
   longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude").optional(),
-  logoLink: z.string().url({ message: "Please enter a valid URL for the logo." }).optional().or(z.literal('')),
+  logoFile: z.instanceof(File).optional().nullable(), // For file upload
   halalStatus: z.enum(halalStatusesList.map(s => s.id) as [HalalStatus, ...HalalStatus[]], {
     required_error: "Please select a halal status."
   }),
@@ -41,48 +41,65 @@ const cafeSubmissionSchema = z.object({
   socialWhatsapp: z.string()
     .regex(/^(https:\/\/wa\.me\/\S+|^\d{10,15}$)/, { message: "Enter a valid WhatsApp link (e.g., https://wa.me/60123456789) or phone number."})
     .optional().or(z.literal('')),
-  rating: z.number().default(0),
+  // Rating is set by admin or system, not by user submission directly
   termsAccepted: z.boolean().refine(value => value === true, {
     message: "You must accept the terms and conditions to submit a cafe."
   }),
 });
 
-type CafeSubmissionFormData = z.infer<typeof cafeSubmissionSchema>;
+// This type aligns with the Zod schema for form handling
+type CafeSubmissionFormZodData = z.infer<typeof cafeSubmissionSchema>;
 
 interface CafeSubmissionFormProps {
   onFormSubmit?: () => void;
 }
 
 export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
-  const { register, handleSubmit, control, formState: { errors, isSubmitting }, reset, watch } = useForm<CafeSubmissionFormData>({
+  const { register, handleSubmit, control, formState: { errors, isSubmitting }, reset, watch, setValue } = useForm<CafeSubmissionFormZodData>({
     resolver: zodResolver(cafeSubmissionSchema),
     defaultValues: {
       tags: [],
-      rating: 0,
       termsAccepted: false,
+      logoFile: null,
     }
   });
   const { toast } = useToast();
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
-  const onSubmit: SubmitHandler<CafeSubmissionFormData> = async (formData) => {
-    const cafeDataForDb: Partial<Omit<Cafe, 'id'>> = {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setValue("logoFile", file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setValue("logoFile", null);
+      setLogoPreview(null);
+    }
+  };
+
+  const onSubmit: SubmitHandler<CafeSubmissionFormZodData> = async (formData) => {
+    const cafeId = generateCafeId(formData.name);
+
+    // Prepare data for Firestore, excluding termsAccepted and logoFile (which is handled separately)
+    const cafeDataForDb: Omit<Cafe, 'id' | 'submittedAt' | 'approvedAt' | 'logoLink'> & { rating: number } = {
       name: formData.name,
       address: formData.address,
       state: formData.state,
       latitude: formData.latitude || 0,
       longitude: formData.longitude || 0,
       openingHours: formData.openingHours,
-      rating: formData.rating, // Form includes rating, defaults to 0
+      rating: 0, // Default rating for new submissions
       halalStatus: formData.halalStatus,
-      tags: formData.tags,
+      tags: formData.tags || [],
+      socialMediaLinks: {},
     };
 
-    if (formData.logoLink && formData.logoLink.trim() !== '') {
-      cafeDataForDb.logoLink = formData.logoLink;
-    }
-    // No 'else' needed, if logoLink is empty, it's omitted
-
-    const socialLinks: Partial<Cafe['socialMediaLinks']> = {}; // Use Partial here
+    // Conditionally add social media links
+    const socialLinks: Partial<Cafe['socialMediaLinks']> = {};
     if (formData.websiteLink && formData.websiteLink.trim() !== '') socialLinks.website = formData.websiteLink;
     if (formData.socialInstagram && formData.socialInstagram.trim() !== '') socialLinks.instagram = formData.socialInstagram;
     if (formData.socialFacebook && formData.socialFacebook.trim() !== '') socialLinks.facebook = formData.socialFacebook;
@@ -93,16 +110,16 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
     if (Object.keys(socialLinks).length > 0) {
       cafeDataForDb.socialMediaLinks = socialLinks as Cafe['socialMediaLinks'];
     }
-    // No 'else' needed, if socialLinks is empty, it's omitted
+    
+    const submissionResultId = await addCafeToPending(cafeId, cafeDataForDb, formData.logoFile);
 
-    const newCafeId = await addCafe(cafeDataForDb as Omit<Cafe, 'id'>);
-
-    if (newCafeId) {
+    if (submissionResultId) {
       toast({
         title: "Submission Received! 🍵✨",
         description: `${formData.name} has been submitted for review. Thank you for contributing!`,
       });
       reset();
+      setLogoPreview(null);
       if (onFormSubmit) {
         onFormSubmit();
       }
@@ -154,7 +171,7 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
                   name="state"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
                       <SelectTrigger id="state" className="mt-1 w-full">
                         <SelectValue placeholder="Select State" />
                       </SelectTrigger>
@@ -188,10 +205,21 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
 
           <div className="space-y-2">
             <h3 className="text-lg font-semibold flex items-center"><UploadCloud className="w-5 h-5 mr-2 text-primary" /> 3. Upload Your Logo</h3>
-            <Label htmlFor="logoLink">If you’re the owner, provide a link (URL) to your café’s logo to help visitors recognize you.</Label>
-            <Input id="logoLink" type="url" {...register("logoLink")} className="mt-1" placeholder="https://yourcafe.com/logo.png"/>
-            <p className="text-xs text-muted-foreground mt-1">Direct file upload coming soon! For now, please provide a public URL.</p>
-            {errors.logoLink && <p className="text-xs text-destructive mt-1">{errors.logoLink.message}</p>}
+            <Label htmlFor="logoFile">If you’re the owner, upload your café’s logo (e.g., PNG, JPG) to help visitors recognize you.</Label>
+            <Input 
+              id="logoFile" 
+              type="file" 
+              accept="image/png, image/jpeg, image/webp"
+              onChange={handleFileChange} 
+              className="mt-1" 
+            />
+            {logoPreview && (
+              <div className="mt-2">
+                <p className="text-sm text-muted-foreground">Logo Preview:</p>
+                <img src={logoPreview} alt="Logo preview" className="h-20 w-auto object-contain border rounded-md mt-1" />
+              </div>
+            )}
+            {errors.logoFile && <p className="text-xs text-destructive mt-1">{errors.logoFile.message}</p>}
           </div>
 
           <div className="space-y-2">
@@ -203,13 +231,13 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
               render={({ field }) => (
                 <RadioGroup
                   onValueChange={field.onChange}
-                  defaultValue={field.value}
+                  value={field.value}
                   className="mt-2 space-y-1"
                 >
                   {halalStatusesList.map((status) => (
                     <div key={status.id} className="flex items-center space-x-2 p-2 border rounded-md hover:bg-muted/50">
-                      <RadioGroupItem value={status.id} id={status.id} />
-                      <Label htmlFor={status.id} className="font-normal cursor-pointer">
+                      <RadioGroupItem value={status.id} id={`halal-${status.id}`} />
+                      <Label htmlFor={`halal-${status.id}`} className="font-normal cursor-pointer">
                         {status.label} <span className="text-muted-foreground text-xs">{status.description}</span>
                       </Label>
                     </div>
@@ -231,7 +259,7 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
                   {additionalTagsList.map((tag) => (
                     <div key={tag.id} className="flex items-center space-x-2 p-2 border rounded-md hover:bg-muted/50">
                       <Checkbox
-                        id={tag.id}
+                        id={`tag-${tag.id}`}
                         checked={selectedTags.includes(tag.label)}
                         onCheckedChange={(checked) => {
                           const currentTags = field.value || [];
@@ -242,7 +270,7 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
                           }
                         }}
                       />
-                      <Label htmlFor={tag.id} className="font-normal cursor-pointer">{tag.label}</Label>
+                      <Label htmlFor={`tag-${tag.id}`} className="font-normal cursor-pointer">{tag.label}</Label>
                     </div>
                   ))}
                 </div>
@@ -290,7 +318,7 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
 
           <div className="space-y-3 pt-4 border-t">
             <div className="flex items-start space-x-2">
-              <Controller
+               <Controller
                 name="termsAccepted"
                 control={control}
                 render={({ field }) => (
@@ -328,4 +356,3 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
     </Card>
   );
 }
-

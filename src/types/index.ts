@@ -1,26 +1,46 @@
 
+import type { Timestamp } from 'firebase/firestore';
+
 export type HalalStatus = "Muslim Friendly" | "Muslim Owner" | "Non Halal" | "Not Specified";
 
 export interface Cafe {
-  id: string;
+  id: string; // This will be the custom generated ID
   name: string;
   address: string;
   latitude: number;
   longitude: number;
   openingHours: string;
-  // menuLink?: string; // Removed, menu expected via website/social
-  rating: number; // Rating will be assigned by admin/community later, not part of initial submission
-  logoLink?: string; // Renamed from image, for cafe logo
-  dataAiHint?: string; // For placeholder image keyword hint for general cafe images
+  rating: number;
+  logoLink?: string; // URL to the logo in Firebase Storage
+  dataAiHint?: string;
   state: string;
   tags?: string[];
-  halalStatus?: HalalStatus; // New field
+  halalStatus?: HalalStatus;
   socialMediaLinks?: {
-    website?: string; // General website
+    website?: string;
     instagram?: string;
     facebook?: string;
-    twitter?: string; // New
-    tiktok?: string; // New
-    whatsapp?: string; // New (e.g., wa.me link)
+    twitter?: string;
+    tiktok?: string;
+    whatsapp?: string;
   };
+  submittedAt?: Timestamp | Date; // Timestamp of when the cafe was submitted
+  approvedAt?: Timestamp | Date; // Timestamp of when the cafe was approved
+}
+
+// Specific type for form data handling, including the file object
+export interface CafeFormData extends Omit<Cafe, 'id' | 'logoLink' | 'submittedAt' | 'approvedAt' | 'rating'> {
+  logoFile?: File | null;
+  termsAccepted: boolean;
+  // Rating is not set by user, halalStatus is string from enum
+  halalStatus: HalalStatus;
+  rating?: number; // will be defaulted to 0
+  // Optional fields directly from form
+  websiteLink?: string;
+  socialInstagram?: string;
+  socialFacebook?: string;
+  socialTwitter?: string;
+  socialTiktok?: string;
+  socialWhatsapp?: string;
+  logoLink?: string; // This will hold the URL after upload for the DB
 }
