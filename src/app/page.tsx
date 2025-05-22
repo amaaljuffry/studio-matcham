@@ -16,21 +16,22 @@ import {
   SidebarHeader,
   SidebarContent,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { Leaf, Filter, Bot as BotIcon, XCircle } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import { Leaf, Filter, Bot as BotIcon, XCircle, MapPin, StarIcon } from "lucide-react";
 import Image from "next/image";
-// Removed useToast as it was only used for map API key warning
-// import { useToast } from "@/hooks/use-toast";
 
-export default function HomePage() {
+// Changed from 'export default function HomePage()' to 'function HomePage()'
+function HomePage() {
   const [allCafes] = useState<Cafe[]>(mockCafes);
   const [filteredCafes, setFilteredCafes] = useState<Cafe[]>(allCafes);
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [minRating, setMinRating] = useState<number>(0);
-  // const { toast } = useToast(); // Removed as map API key warning is removed
+
+  const { toggleSidebar, isMobile, state: sidebarState, openMobile: mobileSidebarOpen } = useSidebar();
 
   useEffect(() => {
     const result = allCafes.filter((cafe) => cafe.rating >= minRating);
@@ -48,8 +49,12 @@ export default function HomePage() {
     setSelectedCafe(cafe);
   };
 
+  const cafeListForSidebar = useMemo(() => {
+    return filteredCafes.slice(0, 10); // Show a limited number, e.g., top 10
+  }, [filteredCafes]);
+
   return (
-    <SidebarProvider defaultOpen={true}>
+    <TooltipProvider>
       <Sidebar 
         variant="sidebar" 
         collapsible="icon"
@@ -75,7 +80,9 @@ export default function HomePage() {
                 <div className="hidden group-data-[collapsible=icon]:flex justify-center py-2">
                    <Tooltip>
                       <TooltipTrigger asChild>
-                        <Filter className="w-6 h-6 text-sidebar-foreground" />
+                        <Button variant="ghost" size="icon" className="text-sidebar-foreground w-8 h-8">
+                           <Filter className="w-6 h-6" />
+                        </Button>
                       </TooltipTrigger>
                       <TooltipContent side="right" align="center">Filters</TooltipContent>
                    </Tooltip>
@@ -95,12 +102,59 @@ export default function HomePage() {
                  <div className="hidden group-data-[collapsible=icon]:flex justify-center py-2">
                    <Tooltip>
                       <TooltipTrigger asChild>
-                        <BotIcon className="w-6 h-6 text-sidebar-foreground" />
+                         <Button variant="ghost" size="icon" className="text-sidebar-foreground w-8 h-8">
+                            <BotIcon className="w-6 h-6" />
+                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="right" align="center">AI Concierge</TooltipContent>
                     </Tooltip>
                 </div>
               </div>
+              
+              <Separator className="my-4 group-data-[collapsible=icon]:hidden bg-sidebar-border" />
+
+              <div>
+                <h2 className="text-lg font-semibold mb-3 flex items-center text-sidebar-foreground group-data-[collapsible=icon]:hidden">
+                  <MapPin className="w-5 h-5 mr-2" />
+                  Cafes Nearby
+                </h2>
+                <div className="space-y-2 group-data-[collapsible=icon]:hidden">
+                  {cafeListForSidebar.length > 0 ? (
+                    cafeListForSidebar.map(cafe => (
+                      <Card 
+                        key={cafe.id} 
+                        onClick={() => handleCafeSelect(cafe)}
+                        className={`cursor-pointer p-3 shadow-sm hover:shadow-md transition-shadow ${selectedCafe?.id === cafe.id ? 'bg-primary/10 border-primary' : 'bg-card'}`}
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCafeSelect(cafe);}}
+                        role="button"
+                        aria-pressed={selectedCafe?.id === cafe.id}
+                        aria-label={`Select ${cafe.name}`}
+                      >
+                        <h4 className={`font-medium text-sm ${selectedCafe?.id === cafe.id ? 'text-primary' : 'text-card-foreground'}`}>{cafe.name}</h4>
+                        <p className="text-xs text-muted-foreground truncate">{cafe.address}</p>
+                        <div className="flex items-center mt-1">
+                          <StarIcon className="w-3 h-3 mr-1 text-accent" />
+                          <span className="text-xs text-accent">{cafe.rating}</span>
+                        </div>
+                      </Card>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No cafes match filters.</p>
+                  )}
+                </div>
+                <div className="hidden group-data-[collapsible=icon]:flex justify-center py-2">
+                   <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-sidebar-foreground w-8 h-8">
+                           <MapPin className="w-6 h-6" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" align="center">Cafes Nearby</TooltipContent>
+                   </Tooltip>
+                </div>
+              </div>
+
             </div>
           </ScrollArea>
         </SidebarContent>
@@ -110,21 +164,28 @@ export default function HomePage() {
         <div className="absolute top-4 left-4 z-20 md:hidden">
            <SidebarTrigger className="bg-background/80 backdrop-blur-sm hover:bg-muted"/>
         </div>
-
-        {selectedCafe && (
-          <div className="mb-6">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedCafe(null)}
-              className="hover:bg-accent/10 hover:text-accent-foreground border-accent text-accent flex items-center shadow-sm"
-              aria-label="Clear selection and view cafe list"
-            >
-              <XCircle className="w-4 h-4 mr-2" />
-              Back to Cafe List
+        
+        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex-grow">
+                {selectedCafe && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedCafe(null)}
+                      className="hover:bg-accent/10 hover:text-accent-foreground border-accent text-accent flex items-center shadow-sm"
+                      aria-label="Clear selection and view cafe list"
+                    >
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Back to Cafe List
+                    </Button>
+                )}
+            </div>
+            <Button variant="outline" onClick={toggleSidebar} className="shadow-sm w-full sm:w-auto">
+                <Filter className="w-4 h-4 mr-2" />
+                {isMobile ? (mobileSidebarOpen ? "Hide Filters" : "Show Filters") : (sidebarState === "expanded" ? "Hide Filters Panel" : "Show Filters Panel")}
             </Button>
-          </div>
-        )}
+        </div>
+
 
         {selectedCafe ? (
           <CafeDetailsCard cafe={selectedCafe} />
@@ -134,7 +195,7 @@ export default function HomePage() {
               Discover Matcha Cafes
             </h1>
             <p className="text-muted-foreground mb-6">
-              Explore {allCafes.length} listed cafes. Use filters to narrow down your search.
+              Explore {allCafes.length} listed cafes. Use filters or the AI Concierge in the panel to narrow down your search.
             </p>
             
             {filteredCafes.length > 0 ? (
@@ -156,8 +217,9 @@ export default function HomePage() {
                       <Image
                         src={cafe.image}
                         alt={`Image of ${cafe.name}`}
-                        layout="fill"
-                        objectFit="cover"
+                        fill={true}
+                        sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
+                        style={{objectFit: 'cover'}}
                         data-ai-hint={cafe.dataAiHint || "cafe matcha"}
                         className="group-hover:scale-105 transition-transform duration-300 ease-in-out"
                       />
@@ -179,13 +241,23 @@ export default function HomePage() {
                 <Filter className="w-16 h-16 text-muted-foreground mb-4" />
                 <h2 className="text-xl font-semibold text-foreground mb-2">No Cafes Found</h2>
                 <p className="text-muted-foreground">
-                  No cafes match your current filters. Try adjusting the rating or other criteria.
+                  No cafes match your current filters. Try adjusting the rating or other criteria in the filter panel.
                 </p>
               </div>
             )}
           </div>
         )}
       </main>
-    </SidebarProvider>
+    </TooltipProvider>
   );
 }
+
+const HomePageWithSidebar: React.FC = () => {
+  return (
+    <SidebarProvider defaultOpen={true}>
+      <HomePage />
+    </SidebarProvider>
+  );
+};
+
+export default HomePageWithSidebar;
