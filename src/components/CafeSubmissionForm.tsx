@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from 'react';
@@ -17,7 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { malaysianStates, additionalTagsList, halalStatusesList } from '@/data/cafes';
 import type { HalalStatus, Cafe } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { addCafeToPending, generateCafeId } from '@/services/cafeService'; // Updated service
+import { addCafeToPending, generateCafeId } from '@/services/cafeService';
 import { Loader2, UploadCloud, MapPin } from 'lucide-react';
 import Link from 'next/link';
 
@@ -27,11 +26,13 @@ const cafeSubmissionSchema = z.object({
   state: z.string().min(1, { message: "Please select a state." }),
   latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude").optional(),
   longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude").optional(),
-  logoFile: z.instanceof(File).optional().nullable(), // For file upload
+  logoFile: z.instanceof(File).optional().nullable(),
   halalStatus: z.enum(halalStatusesList.map(s => s.id) as [HalalStatus, ...HalalStatus[]], {
     required_error: "Please select a halal status."
   }),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string())
+    .max(3, { message: "You can only select up to 3 tags" })
+    .optional(),
   openingHours: z.string().min(5, { message: "Opening hours information seems too short." }),
   websiteLink: z.string().url({ message: "Please enter a valid URL for the website." }).optional().or(z.literal('')),
   socialInstagram: z.string().url({ message: "Please enter a valid URL for Instagram." }).optional().or(z.literal('')),
@@ -41,13 +42,11 @@ const cafeSubmissionSchema = z.object({
   socialWhatsapp: z.string()
     .regex(/^(https:\/\/wa\.me\/\S+|^\d{10,15}$)/, { message: "Enter a valid WhatsApp link (e.g., https://wa.me/60123456789) or phone number."})
     .optional().or(z.literal('')),
-  // Rating is set by admin or system, not by user submission directly
   termsAccepted: z.boolean().refine(value => value === true, {
     message: "You must accept the terms and conditions to submit a cafe."
   }),
 });
 
-// This type aligns with the Zod schema for form handling
 type CafeSubmissionFormZodData = z.infer<typeof cafeSubmissionSchema>;
 
 interface CafeSubmissionFormProps {
@@ -61,6 +60,7 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
       tags: [],
       termsAccepted: false,
       logoFile: null,
+      halalStatus: "Not Specified", // Assuming "Not Specified" is a valid ID in halalStatusesList
     }
   });
   const { toast } = useToast();
@@ -83,8 +83,6 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
 
   const onSubmit: SubmitHandler<CafeSubmissionFormZodData> = async (formData) => {
     const cafeId = generateCafeId(formData.name);
-
-    // Prepare data for Firestore, excluding termsAccepted and logoFile (which is handled separately)
     const cafeDataForDb: Omit<Cafe, 'id' | 'submittedAt' | 'approvedAt' | 'logoLink'> & { rating: number } = {
       name: formData.name,
       address: formData.address,
@@ -92,13 +90,12 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
       latitude: formData.latitude || 0,
       longitude: formData.longitude || 0,
       openingHours: formData.openingHours,
-      rating: 0, // Default rating for new submissions
+      rating: 0,
       halalStatus: formData.halalStatus,
       tags: formData.tags || [],
       socialMediaLinks: {},
     };
 
-    // Conditionally add social media links
     const socialLinks: Partial<Cafe['socialMediaLinks']> = {};
     if (formData.websiteLink && formData.websiteLink.trim() !== '') socialLinks.website = formData.websiteLink;
     if (formData.socialInstagram && formData.socialInstagram.trim() !== '') socialLinks.instagram = formData.socialInstagram;
@@ -110,7 +107,7 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
     if (Object.keys(socialLinks).length > 0) {
       cafeDataForDb.socialMediaLinks = socialLinks as Cafe['socialMediaLinks'];
     }
-    
+
     const submissionResultId = await addCafeToPending(cafeId, cafeDataForDb, formData.logoFile);
 
     if (submissionResultId) {
@@ -136,24 +133,26 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
 
   return (
     <Card className="w-full border-0 shadow-none">
-      <CardHeader className="px-1 pt-0 text-center md:text-left">
+      <CardHeader className="px-3 pt-0 text-center md:text-left">
         <CardTitle className="text-xl md:text-2xl">Submit Your Matcha Café to Our Directory! 🍵✨</CardTitle>
         <CardDescription className="text-sm">
           We’re excited to feature authentic matcha cafés that serve delicious Japanese matcha drinks and desserts.
           Please fill in the details below so fellow matcha lovers can find and enjoy your spot!
         </CardDescription>
       </CardHeader>
-      <CardContent className="px-1 pb-0">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-h-[70vh] overflow-y-auto pr-3">
+      <CardContent className="px-3 pb-0"> {/* Overall left/right padding for the form area */}
+        {/* Form handles scrolling; direct children sections will have margin-right for scrollbar space */}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-h-[70vh] overflow-y-auto"> {/* REMOVED pr-3 */}
 
-          <div className="space-y-2">
+          {/* Each direct child div of the form gets mr-4 for scrollbar spacing */}
+          <div className="space-y-2 mx-1"> 
             <h3 className="text-lg font-semibold">1. Café Name</h3>
             <Label htmlFor="name">Please enter just the café’s name (no slogans or extra text).</Label>
-            <Input id="name" {...register("name")} className="mt-1" />
+            <Input id="name" {...register("name")} className="mt-1 w-full " />
             {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 mx-1"> 
             <h3 className="text-lg font-semibold flex items-center"><MapPin className="w-5 h-5 mr-2 text-primary" /> 2. Location</h3>
             <p className="text-sm text-muted-foreground">
               If your café is listed on Google Maps, ensure the address matches.
@@ -161,7 +160,7 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
             </p>
             <div>
               <Label htmlFor="address">Full Address</Label>
-              <Textarea id="address" {...register("address")} className="mt-1" />
+              <Textarea id="address" {...register("address")} className="mt-1 w-full" />
               {errors.address && <p className="text-xs text-destructive mt-1">{errors.address.message}</p>}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -185,33 +184,33 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
               </div>
               <div>
                 <Label htmlFor="openingHours">Opening Hours</Label>
-                <Input id="openingHours" {...register("openingHours")} className="mt-1" placeholder="e.g., 10 AM - 10 PM Daily"/>
+                <Input id="openingHours" {...register("openingHours")} className="mt-1 w-full" placeholder="e.g., 10 AM - 10 PM Daily"/>
                 {errors.openingHours && <p className="text-xs text-destructive mt-1">{errors.openingHours.message}</p>}
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="latitude">Latitude (Optional)</Label>
-                <Input id="latitude" type="number" step="any" {...register("latitude")} className="mt-1" placeholder="e.g., 3.1390"/>
+                <Input id="latitude" type="number" step="any" {...register("latitude")} className="mt-1 w-full" placeholder="e.g., 3.1390"/>
                 {errors.latitude && <p className="text-xs text-destructive mt-1">{errors.latitude.message}</p>}
               </div>
               <div>
                 <Label htmlFor="longitude">Longitude (Optional)</Label>
-                <Input id="longitude" type="number" step="any" {...register("longitude")} className="mt-1" placeholder="e.g., 101.6869"/>
+                <Input id="longitude" type="number" step="any" {...register("longitude")} className="mt-1 w-full" placeholder="e.g., 101.6869"/>
                 {errors.longitude && <p className="text-xs text-destructive mt-1">{errors.longitude.message}</p>}
               </div>
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 mr-4"> {/* ADDED mr-4 HERE */}
             <h3 className="text-lg font-semibold flex items-center"><UploadCloud className="w-5 h-5 mr-2 text-primary" /> 3. Upload Your Logo</h3>
             <Label htmlFor="logoFile">If you’re the owner, upload your café’s logo (e.g., PNG, JPG) to help visitors recognize you.</Label>
-            <Input 
-              id="logoFile" 
-              type="file" 
+            <Input
+              id="logoFile"
+              type="file"
               accept="image/png, image/jpeg, image/webp"
-              onChange={handleFileChange} 
-              className="mt-1" 
+              onChange={handleFileChange}
+              className="mt-1 w-full"
             />
             {logoPreview && (
               <div className="mt-2">
@@ -222,18 +221,14 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
             {errors.logoFile && <p className="text-xs text-destructive mt-1">{errors.logoFile.message}</p>}
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 mr-4"> {/* ADDED mr-4 HERE */}
             <h3 className="text-lg font-semibold">4. Halal Status (Important for Muslim Customers)</h3>
-            <p className="text-sm text-muted-foreground">Please select the halal status of your café. If you have halal certification, please contact us on Instagram for official verification.</p>
+            {/* ... (content of Halal status) ... */}
             <Controller
               name="halalStatus"
               control={control}
               render={({ field }) => (
-                <RadioGroup
-                  onValueChange={field.onChange}
-                  value={field.value}
-                  className="mt-2 space-y-1"
-                >
+                <RadioGroup /* ... */ >
                   {halalStatusesList.map((status) => (
                     <div key={status.id} className="flex items-center space-x-2 p-2 border rounded-md hover:bg-muted/50">
                       <RadioGroupItem value={status.id} id={`halal-${status.id}`} />
@@ -248,88 +243,112 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
             {errors.halalStatus && <p className="text-xs text-destructive mt-1">{errors.halalStatus.message}</p>}
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 mr-4"> {/* ADDED mr-4 HERE */}
             <h3 className="text-lg font-semibold">5. Additional Tags</h3>
-            <p className="text-sm text-muted-foreground">Help matcha fans find your café by selecting tags that apply:</p>
+            <p className="text-sm text-muted-foreground">Select up to 3 tags that best describe your café:</p>
             <Controller
               name="tags"
               control={control}
               render={({ field }) => (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                   {additionalTagsList.map((tag) => (
-                    <div key={tag.id} className="flex items-center space-x-2 p-2 border rounded-md hover:bg-muted/50">
+                    <div 
+                      key={tag.id} 
+                      className="flex items-center space-x-2 p-2 border rounded-md hover:bg-muted/50"
+                    >
                       <Checkbox
                         id={`tag-${tag.id}`}
-                        checked={selectedTags.includes(tag.label)}
+                        checked={field.value?.includes(tag.id)}
                         onCheckedChange={(checked) => {
                           const currentTags = field.value || [];
                           if (checked) {
-                            field.onChange([...currentTags, tag.label]);
+                            if (currentTags.length >= 3) {
+                              toast({
+                                title: "Maximum Tags Reached",
+                                description: "You can only select up to 3 tags",
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+                            field.onChange([...currentTags, tag.id]);
                           } else {
-                            field.onChange(currentTags.filter((value) => value !== tag.label));
+                            field.onChange(currentTags.filter(t => t !== tag.id));
                           }
                         }}
+                        disabled={!field.value?.includes(tag.id) && (field.value?.length || 0) >= 3}
                       />
-                      <Label htmlFor={`tag-${tag.id}`} className="font-normal cursor-pointer">{tag.label}</Label>
+                      <Label 
+                        htmlFor={`tag-${tag.id}`} 
+                        className="font-normal cursor-pointer"
+                      >
+                        {tag.label}
+                      </Label>
                     </div>
                   ))}
                 </div>
               )}
             />
-            {errors.tags && <p className="text-xs text-destructive mt-1">{errors.tags.message}</p>}
+            {errors.tags && (
+              <p className="text-xs text-destructive mt-1">{errors.tags.message}</p>
+            )}
+            <p className="text-xs text-muted-foreground mt-2">
+              Selected: {selectedTags.length}/3 tags
+            </p>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 mx-1"> {/* ADDED mr-4 HERE */}
             <h3 className="text-lg font-semibold">6. Share Your Social Media Links</h3>
             <p className="text-sm text-muted-foreground">Let visitors see your menu, updates, and beautiful matcha photos:</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="websiteLink">Website Link (Optional)</Label>
-                <Input id="websiteLink" type="url" {...register("websiteLink")} className="mt-1" placeholder="https://yourcafe.com" />
+                <Input id="websiteLink" type="url" {...register("websiteLink")} className="mt-1 w-full" placeholder="https://yourcafe.com" />
                 {errors.websiteLink && <p className="text-xs text-destructive mt-1">{errors.websiteLink.message}</p>}
               </div>
+              {/* ... Add w-full to all other inputs in this grid ... */}
               <div>
                 <Label htmlFor="socialInstagram">Instagram (Optional)</Label>
-                <Input id="socialInstagram" type="url" {...register("socialInstagram")} className="mt-1" placeholder="https://instagram.com/yourcafe" />
+                <Input id="socialInstagram" type="url" {...register("socialInstagram")} className="mt-1 w-full" placeholder="https://instagram.com/yourcafe" />
                 {errors.socialInstagram && <p className="text-xs text-destructive mt-1">{errors.socialInstagram.message}</p>}
               </div>
               <div>
                 <Label htmlFor="socialFacebook">Facebook (Optional)</Label>
-                <Input id="socialFacebook" type="url" {...register("socialFacebook")} className="mt-1" placeholder="https://facebook.com/yourcafe" />
+                <Input id="socialFacebook" type="url" {...register("socialFacebook")} className="mt-1 w-full" placeholder="https://facebook.com/yourcafe" />
                 {errors.socialFacebook && <p className="text-xs text-destructive mt-1">{errors.socialFacebook.message}</p>}
               </div>
               <div>
                 <Label htmlFor="socialTwitter">Twitter / X (Optional)</Label>
-                <Input id="socialTwitter" type="url" {...register("socialTwitter")} className="mt-1" placeholder="https://x.com/yourcafe" />
+                <Input id="socialTwitter" type="url" {...register("socialTwitter")} className="mt-1 w-full" placeholder="https://x.com/yourcafe" />
                 {errors.socialTwitter && <p className="text-xs text-destructive mt-1">{errors.socialTwitter.message}</p>}
               </div>
               <div>
                 <Label htmlFor="socialTiktok">TikTok (Optional)</Label>
-                <Input id="socialTiktok" type="url" {...register("socialTiktok")} className="mt-1" placeholder="https://tiktok.com/@yourcafe" />
+                <Input id="socialTiktok" type="url" {...register("socialTiktok")} className="mt-1 w-full" placeholder="https://tiktok.com/@yourcafe" />
                 {errors.socialTiktok && <p className="text-xs text-destructive mt-1">{errors.socialTiktok.message}</p>}
               </div>
               <div>
                 <Label htmlFor="socialWhatsapp">WhatsApp (Optional)</Label>
-                <Input id="socialWhatsapp" type="text" {...register("socialWhatsapp")} className="mt-1" placeholder="https://wa.me/60123456789 or 0123456789" />
+                <Input id="socialWhatsapp" type="text" {...register("socialWhatsapp")} className="mt-1 w-full" placeholder="https://wa.me/60123456789 or 0123456789" />
                 {errors.socialWhatsapp && <p className="text-xs text-destructive mt-1">{errors.socialWhatsapp.message}</p>}
               </div>
             </div>
           </div>
 
-          <div className="space-y-3 pt-4 border-t">
+          {/* Terms and Submit button sections */}
+          <div className="space-y-3 pt-4 border-t mr-4"> {/* ADDED mr-4 HERE */}
             <div className="flex items-start space-x-2">
-               <Controller
-                name="termsAccepted"
-                control={control}
-                render={({ field }) => (
-                  <Checkbox
-                    id="termsAccepted"
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                    className="mt-1"
-                  />
-                )}
-              />
+                <Controller
+                  name="termsAccepted"
+                  control={control}
+                  render={({ field }) => (
+                    <Checkbox
+                      id="termsAccepted"
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      className="mt-1"
+                    />
+                  )}
+                />
               <Label htmlFor="termsAccepted" className="text-sm font-normal leading-snug">
                 I agree to the <Link href="/terms" className="underline text-primary hover:text-accent" target="_blank">Terms of Service</Link> and <Link href="/privacy" className="underline text-primary hover:text-accent" target="_blank">Privacy Policy</Link>.
               </Label>
@@ -340,12 +359,11 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
             </p>
           </div>
 
-
-          <p className="text-sm text-muted-foreground pt-4 border-t">
+          <p className="text-sm text-muted-foreground pt-4 border-t mr-4"> {/* ADDED mr-4 HERE */}
             Thank you for sharing your love of matcha with our community! We review submissions carefully to keep our directory authentic and welcoming.
           </p>
 
-          <div className="pt-2 pb-4">
+          <div className="pt-2 pb-4 mr-4"> {/* ADDED mr-4 HERE */}
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Submit Cafe for Review

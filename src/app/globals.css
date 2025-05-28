@@ -4,42 +4,55 @@
 
 @layer base {
   :root {
-    --background: 60 56% 92%; /* Off-white #F5F5DC */
-    --foreground: 240 10% 3.9%;
+    /* Light Theme (Default) */
 
-    --card: 60 56% 90%; /* Slightly different from background for definition */
+    /* Core Colors */
+    --background: 60 56% 92%;    /* Off-white: #F5F5DC */
+    --foreground: 240 10% 3.9%;  /* Near-black */
+
+    /* UI Component Backgrounds & Foregrounds */
+    --card: 60 56% 90%;          /* Slightly darker off-white for definition */
     --card-foreground: 240 10% 3.9%;
 
     --popover: 60 56% 90%;
     --popover-foreground: 240 10% 3.9%;
 
-    --primary: 122 39% 44%; /* Deep matcha green #43A047 */
-    --primary-foreground: 60 93% 98%; /* Light color for contrast */
+    /* Primary Actions & Elements (Matcha Green) */
+    --primary: 122 39% 44%;      /* Deep matcha green: #43A047 */
+    --primary-foreground: 60 93% 98%; /* Light off-white for contrast on primary */
 
-    --secondary: 122 25% 70%; /* Lighter shade of matcha green */
+    /* Secondary Actions & Elements (Lighter Matcha Green) */
+    --secondary: 122 25% 70%;    /* Lighter shade of matcha green */
     --secondary-foreground: 240 10% 3.9%;
 
-    --muted: 60 30% 85%; /* Lighter, desaturated version of background */
+    /* Muted/Subtle Elements */
+    --muted: 60 30% 85%;         /* Lighter, desaturated background variant */
     --muted-foreground: 240 5% 45%; /* Darker muted text */
 
-    --accent: 42 92% 38%; /* Muted gold #B8860B */
-    --accent-foreground: 60 93% 98%; /* Light color for contrast */
+    /* Accent Color (Muted Gold) */
+    --accent: 42 92% 38%;        /* Muted gold: #B8860B */
+    --accent-foreground: 60 93% 98%; /* Light off-white for contrast on accent */
 
+    /* Destructive Actions (Red) */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 60 30% 82%; /* Subtle border, related to background/muted */
-    --input: 60 40% 88%; /* Input background, slightly different from main background */
-    --ring: 122 39% 44%; /* Primary color for ring */
+    /* Borders, Inputs, Focus Rings */
+    --border: 60 30% 82%;        /* Subtle border, related to background/muted */
+    --input: 60 40% 88%;         /* Input background, slightly different from main background */
+    --ring: 122 39% 44%;         /* Primary color for focus rings */
 
+    /* Chart Colors (Example Palette) */
     --chart-1: 122 39% 44%;
     --chart-2: 42 92% 38%;
     --chart-3: 122 25% 60%;
     --chart-4: 42 70% 50%;
     --chart-5: 120 20% 50%;
+
+    /* Border Radius */
     --radius: 0.5rem;
 
-    /* Minimalist Sidebar Theme */
+    /* Minimalist Sidebar Theme Variables */
     --sidebar-background: 60 40% 88%; /* Slightly darker off-white / very light muted green */
     --sidebar-foreground: 122 30% 25%; /* Dark matcha green for text */
     --sidebar-primary: 122 39% 44%; /* Deep matcha green for active/primary elements */
@@ -51,36 +64,45 @@
   }
 
   .dark {
-    /* Dark Theme - Keeping it consistent with the light theme's intent */
-    --background: 120 5% 10%; /* Dark, slightly green-tinted background */
-    --foreground: 60 30% 90%; /* Light off-white text */
+    /* Dark Theme */
 
+    /* Core Colors */
+    --background: 120 5% 10%;    /* Dark, slightly green-tinted background */
+    --foreground: 60 30% 90%;    /* Light off-white text */
+
+    /* UI Component Backgrounds & Foregrounds */
     --card: 120 5% 15%;
     --card-foreground: 60 30% 90%;
 
     --popover: 120 5% 15%;
     --popover-foreground: 60 30% 90%;
 
-    --primary: 122 39% 50%; /* Brighter matcha green for dark mode */
+    /* Primary Actions & Elements (Brighter Matcha Green) */
+    --primary: 122 39% 50%;      /* Brighter matcha green for dark mode */
     --primary-foreground: 120 10% 5%; /* Dark text on primary */
 
-    --secondary: 122 25% 30%; /* Darker, muted matcha */
+    /* Secondary Actions & Elements (Darker Muted Matcha) */
+    --secondary: 122 25% 30%;    /* Darker, muted matcha */
     --secondary-foreground: 60 30% 90%;
 
+    /* Muted/Subtle Elements */
     --muted: 120 5% 20%;
     --muted-foreground: 60 20% 65%;
 
-    --accent: 42 80% 50%; /* Brighter gold for dark mode */
+    /* Accent Color (Brighter Gold) */
+    --accent: 42 80% 50%;        /* Brighter gold for dark mode */
     --accent-foreground: 120 10% 5%; /* Dark text on accent */
 
+    /* Destructive Actions (Red) */
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 98%;
 
+    /* Borders, Inputs, Focus Rings */
     --border: 120 5% 25%;
     --input: 120 5% 22%;
     --ring: 122 39% 50%;
 
-    /* Dark Sidebar Theme */
+    /* Dark Sidebar Theme Variables */
     --sidebar-background: 120 5% 12%; /* Very dark base for sidebar */
     --sidebar-foreground: 60 40% 80%; /* Lighter text */
     --sidebar-primary: 122 39% 50%; /* Matcha green for active items */
@@ -98,7 +120,10 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* Updated font stack */
+    /* This font stack will be applied if not overridden by Tailwind's font utilities
+       or a font loaded via Next.js <head> or layout.tsx.
+       Ensure "Helvetica Now Display" is available via @font-face if it's a custom font.
+    */
     font-family: "Helvetica Now Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
   }
 }
@@ -106,10 +131,3 @@
 html {
   scroll-behavior: smooth;
 }
-
-/* If you want to ensure Tailwind applies the font from the variable, 
-   you can define it in tailwind.config.ts and use a utility class,
-   or simply ensure the body tag in layout.tsx has the font variable class.
-   The current setup in layout.tsx already does this.
-*/
-

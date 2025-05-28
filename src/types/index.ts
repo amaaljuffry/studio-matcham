@@ -1,46 +1,38 @@
+// src/types/index.ts
 
-import type { Timestamp } from 'firebase/firestore';
+// Define the specific HalalStatus IDs that your form and database expect
+export type HalalStatus =
+  | "Muslim Friendly"
+  | "Muslim Owner"
+  | "Non Halal"
+  | "Not Specified";
 
-export type HalalStatus = "Muslim Friendly" | "Muslim Owner" | "Non Halal" | "Not Specified";
+// Define the structure for social media links
+export type SocialMediaLinks = {
+  website?: string;
+  instagram?: string;
+  facebook?: string;
+  twitter?: string;
+  tiktok?: string;
+  whatsapp?: string;
+};
 
-export interface Cafe {
-  id: string; // This will be the custom generated ID
+// Define the main Cafe type
+export type Cafe = {
+  id: string; // Document ID from Firestore
   name: string;
   address: string;
+  state: string;
   latitude: number;
   longitude: number;
-  openingHours: string;
-  rating: number;
-  logoLink?: string; // URL to the logo in Firebase Storage
-  dataAiHint?: string;
-  state: string;
-  tags?: string[];
-  halalStatus?: HalalStatus;
-  socialMediaLinks?: {
-    website?: string;
-    instagram?: string;
-    facebook?: string;
-    twitter?: string;
-    tiktok?: string;
-    whatsapp?: string;
-  };
-  submittedAt?: Timestamp | Date; // Timestamp of when the cafe was submitted
-  approvedAt?: Timestamp | Date; // Timestamp of when the cafe was approved
-}
-
-// Specific type for form data handling, including the file object
-export interface CafeFormData extends Omit<Cafe, 'id' | 'logoLink' | 'submittedAt' | 'approvedAt' | 'rating'> {
-  logoFile?: File | null;
-  termsAccepted: boolean;
-  // Rating is not set by user, halalStatus is string from enum
+  logoLink?: string | null; // URL to the logo in Firebase Storage
   halalStatus: HalalStatus;
-  rating?: number; // will be defaulted to 0
-  // Optional fields directly from form
-  websiteLink?: string;
-  socialInstagram?: string;
-  socialFacebook?: string;
-  socialTwitter?: string;
-  socialTiktok?: string;
-  socialWhatsapp?: string;
-  logoLink?: string; // This will hold the URL after upload for the DB
-}
+  tags?: string[]; // Array of selected tags (e.g., 'cozy', 'wifi')
+  openingHours: string;
+  socialMediaLinks?: SocialMediaLinks;
+  rating: number; // Average user rating
+  userRatingTotal: number; // Total number of ratings (for calculating average)
+  submittedAt: Date; // Timestamp when the cafe was submitted (Date object after conversion)
+  approvedAt?: Date | null; // Timestamp when the cafe was approved (Date object after conversion)
+  businessStatus: "PENDING_REVIEW" | "OPERATIONAL" | "CLOSED" | "TEMPORARILY_CLOSED"; // Status
+};

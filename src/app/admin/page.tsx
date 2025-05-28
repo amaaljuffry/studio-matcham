@@ -1,183 +1,399 @@
+// src/app/admin/page.tsx
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import type { Cafe } from '@/types';
-import { getPendingCafes, approveCafe, rejectCafe } from '@/services/cafeService';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { Loader2, ShieldAlert, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
-import Image from 'next/image';
-import { format } from 'date-fns';
-import Link from 'next/link';
-
-const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET || "supersecret"; // Replace with a strong secret in your .env.local
+import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react"; // signOut is no longer needed directly here
+import type { Cafe } from "@/types";
+import {
+  getPendingCafes,
+  approveCafe,
+  rejectCafe,
+} from "@/services/cafeService";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Loader2,
+  ShieldAlert, // Still needed for access denied page
+  CheckCircle,
+  XCircle,
+  Clock,
+  RefreshCcw, // Needed for refresh button
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+  CardDescription,
+} from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import Link from "next/link"; // Link might be needed for social media or other links within cards
 
 export default function AdminPage() {
   const [pendingCafes, setPendingCafes] = useState<Cafe[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isProcessing, setIsProcessing] = useState<Record<string, boolean>>({}); // To track processing state for each cafe
+  const [isFetchingCafes, setIsFetchingCafes] = useState(false);
+  const [processingCafeIds, setProcessingCafeIds] = useState<Set<string>>(
+    new Set()
+  );
 
-  const searchParams = useSearchParams();
+  const { data: session, status: sessionStatus } = useSession();
   const router = useRouter();
   const { toast } = useToast();
 
+  const isAdmin = session?.user?.role === "admin";
+
+  // Redirect if unauthenticated (after mount and session status is known)
   useEffect(() => {
-    const secret = searchParams.get('secret');
-    if (secret === ADMIN_SECRET) {
-      setIsAuthenticated(true);
-    } else {
-      // For a real app, redirect to login or show a proper unauthorized page
-      // For this simple version, we'll just show a message.
-      // router.push('/'); // Or a dedicated unauthorized page
-      setIsAuthenticated(false);
-      setIsLoading(false);
+    if (sessionStatus === "unauthenticated") {
+      router.push("/admin/login");
     }
-  }, [searchParams, router]);
+    // Access denied check will now happen in AdminLayout if it's placed there,
+    // or you can keep this specific check for the dashboard content.
+    // For now, keeping the check here to show consistent behavior with previous code.
+    else if (sessionStatus === "authenticated" && !isAdmin) {
+      router.push("/admin/login"); // Or to a public page like '/'
+      toast({
+        title: "Access Denied",
+        description: "You do not have permission to view this page.",
+        variant: "destructive",
+      });
+    }
+  }, [sessionStatus, isAdmin, router, toast]);
 
   const fetchPending = useCallback(async () => {
-    if (!isAuthenticated) return;
-    setIsLoading(true);
-    const cafes = await getPendingCafes();
-    setPendingCafes(cafes);
-    setIsLoading(false);
-  }, [isAuthenticated]);
+    if (!isAdmin) return;
+    setIsFetchingCafes(true);
+    try {
+      const cafes = await getPendingCafes();
+      const cafesWithId = cafes.filter((cafe) => cafe.id);
+      cafesWithId.sort((a, b) => {
+        const dateA = a.submittedAt ? new Date(a.submittedAt) : null;
+        const dateB = b.submittedAt ? new Date(b.submittedAt) : null;
+        if (dateB && dateA) return dateB.getTime() - dateA.getTime();
+        if (dateB) return -1;
+        if (dateA) return 1;
+        return 0;
+      });
+      setPendingCafes(cafesWithId);
+    } catch (error) {
+      console.error("Error fetching pending cafes:", error);
+      toast({
+        title: "Error Fetching Cafes",
+        description: "Could not load pending submissions. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsFetchingCafes(false);
+    }
+  }, [isAdmin, toast]);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (sessionStatus === "authenticated" && isAdmin) {
       fetchPending();
     }
-  }, [isAuthenticated, fetchPending]);
+  }, [sessionStatus, isAdmin, fetchPending]);
+
+  const setCafeProcessing = useCallback((cafeId: string, isProcessing: boolean) => {
+    setProcessingCafeIds((prev) => {
+      const newSet = new Set(prev);
+      if (isProcessing) {
+        newSet.add(cafeId);
+      } else {
+        newSet.delete(cafeId);
+      }
+      return newSet;
+    });
+  }, []);
 
   const handleApprove = async (cafe: Cafe) => {
-    if (!cafe.id) return;
-    setIsProcessing(prev => ({ ...prev, [cafe.id!]: true }));
-    const success = await approveCafe(cafe);
-    if (success) {
-      toast({ title: "Cafe Approved", description: `${cafe.name} has been approved and is now live.` });
-      fetchPending(); // Refresh list
-    } else {
-      toast({ title: "Approval Failed", description: `Could not approve ${cafe.name}.`, variant: "destructive" });
+    if (!cafe.id || !isAdmin) {
+      toast({
+        title: "Permission Denied",
+        description: "You are not authorized or cafe ID is missing.",
+        variant: "destructive",
+      });
+      return;
     }
-    setIsProcessing(prev => ({ ...prev, [cafe.id!]: false }));
+    setCafeProcessing(cafe.id, true);
+    try {
+      const success = await approveCafe(cafe);
+      if (success) {
+        toast({
+          title: "Cafe Approved",
+          description: `${cafe.name} has been approved and moved to the main directory.`,
+        });
+        await fetchPending();
+      } else {
+        toast({
+          title: "Approval Failed",
+          description: `Could not approve ${cafe.name}. Please check server logs.`,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error during approval:", error);
+      toast({
+        title: "Approval Error",
+        description: `An unexpected error occurred during approval for ${cafe.name}.`,
+        variant: "destructive",
+      });
+    } finally {
+      setCafeProcessing((cafe.id!), false); // Use non-null assertion as we checked for cafe.id
+    }
   };
 
-  const handleReject = async (cafeId: string, logoLink?: string) => {
-    if (!cafeId) return;
-    setIsProcessing(prev => ({ ...prev, [cafeId]: true }));
-    const success = await rejectCafe(cafeId, logoLink);
-    if (success) {
-      toast({ title: "Cafe Rejected", description: `Submission has been rejected.` });
-      fetchPending(); // Refresh list to ensure data consistency
-    } else {
-      toast({ title: "Rejection Failed", description: `Could not reject submission.`, variant: "destructive" });
+  const handleReject = async (
+    cafeId: string,
+    cafeName: string,
+    logoLink?: string
+  ) => {
+    if (!cafeId || !isAdmin) {
+      toast({
+        title: "Permission Denied",
+        description: "You are not authorized or cafe ID is missing.",
+        variant: "destructive",
+      });
+      return;
     }
-    setIsProcessing(prev => ({ ...prev, [cafeId]: false }));
+    setCafeProcessing(cafeId, true);
+    try {
+      const success = await rejectCafe(cafeId, logoLink);
+      if (success) {
+        toast({
+          title: "Cafe Rejected",
+          description: `${cafeName} submission has been rejected and removed.`,
+        });
+        await fetchPending();
+      } else {
+        toast({
+          title: "Rejection Failed",
+          description: `Could not reject ${cafeName}. Please check server logs.`,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error during rejection:", error);
+      toast({
+        title: "Rejection Error",
+        description: `An unexpected error occurred during rejection for ${cafeName}.`,
+        variant: "destructive",
+      });
+    } finally {
+      setCafeProcessing(cafeId, false);
+    }
   };
 
-  if (!isAuthenticated && !isLoading) {
+  // Render authentication/access denied states (these should appear before the layout)
+  if (sessionStatus === "loading") {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">
-        <ShieldAlert className="w-16 h-16 text-destructive mb-4" />
-        <h1 className="text-2xl font-semibold text-destructive mb-2">Access Denied</h1>
-        <p className="text-muted-foreground text-center">You do not have permission to view this page. <br /> Please provide the correct secret key in the URL (e.g., /admin?secret=YOUR_SECRET).</p>
-        <p className="text-xs text-muted-foreground mt-4">Note: This is a basic protection mechanism for demo purposes. A real application requires robust authentication.</p>
-         <Button variant="outline" asChild className="mt-6">
-          <Link href="/">Back to Home</Link>
-        </Button>
+      <div className="flex justify-center items-center h-screen bg-background dark:bg-neutral-950 text-foreground dark:text-neutral-100">
+        <Loader2 className="h-12 w-12 animate-spin text-primary dark:text-violet-500" />
+        <p className="ml-4 text-lg text-muted-foreground">
+          Loading authentication...
+        </p>
       </div>
     );
   }
-  
-  if (isLoading) {
-    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
+
+  if (sessionStatus === "authenticated" && !isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background dark:bg-neutral-950 p-4 text-center text-foreground dark:text-neutral-100">
+        <ShieldAlert className="w-16 h-16 text-destructive dark:text-red-500 mb-4" />
+        <h1 className="text-2xl font-semibold text-destructive dark:text-red-400 mb-2">
+          Access Denied
+        </h1>
+        <p className="text-muted-foreground dark:text-neutral-400">
+          You do not have the required role to view this page.
+        </p>
+        {/* Note: signOut button is in AdminLayout, but can be here too for immediate effect */}
+        {/* For a more elegant solution, you might have a dedicated /admin/unauthorized page */}
+      </div>
+    );
   }
 
+  // Main content for the dashboard (now rendered within the AdminLayout)
   return (
-    <div className="container mx-auto p-4 md:p-8">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-primary">Admin Dashboard - Pending Cafes</h1>
-        <p className="text-muted-foreground">Review and manage new matcha cafe submissions.</p>
-         <p className="text-xs text-destructive-foreground bg-destructive/80 p-2 rounded-md mt-2">
-          Reminder: The current admin access is via a URL secret. For production, implement proper Firebase Authentication.
-        </p>
+    <> {/* Use a React Fragment as the layout will wrap this */}
+      <header className="flex items-center justify-between border-b border-neutral-800 bg-neutral-900 px-8 py-5 flex-shrink-0">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-white">
+            Admin Dashboard
+          </h1>
+          <p className="text-neutral-400 mt-1 text-sm">
+            Review and manage new matcha cafe submissions.
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          <Button
+            onClick={fetchPending}
+            disabled={isFetchingCafes}
+            className="rounded-lg bg-neutral-800 px-3 py-2 text-neutral-300 hover:bg-neutral-700"
+            variant="ghost"
+          >
+            {isFetchingCafes ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <RefreshCcw className="w-5 h-5" />
+            )}
+          </Button>
+        </div>
       </header>
 
-      {pendingCafes.length === 0 ? (
-        <p className="text-center text-muted-foreground text-lg py-10">No pending submissions. Great job! ✅</p>
-      ) : (
-        <div className="space-y-6">
-          {pendingCafes.map((cafe) => (
-            <Card key={cafe.id} className="shadow-md">
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-2">
-                  <div>
-                    <CardTitle className="text-xl text-primary">{cafe.name}</CardTitle>
-                    <CardDescription>{cafe.address}, {cafe.state}</CardDescription>
-                  </div>
-                  {cafe.submittedAt && (
-                    <Badge variant="outline" className="text-xs whitespace-nowrap mt-1 sm:mt-0">
-                      Submitted: {format(new Date(cafe.submittedAt as Date), "PPp")}
-                    </Badge>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {cafe.logoLink && (
-                  <div className="w-32 h-32 relative overflow-hidden rounded-md border bg-muted">
-                    <Image src={cafe.logoLink} alt={`${cafe.name} logo`} fill style={{objectFit:"contain"}} data-ai-hint="cafe logo" />
-                  </div>
-                )}
-                <p><strong className="text-card-foreground">Halal Status:</strong> {cafe.halalStatus || "Not Specified"}</p>
-                <p><strong className="text-card-foreground">Opening Hours:</strong> {cafe.openingHours}</p>
-                {cafe.tags && cafe.tags.length > 0 && (
-                  <p><strong className="text-card-foreground">Tags:</strong> {cafe.tags.join(', ')}</p>
-                )}
-                {cafe.latitude && cafe.longitude && (
-                     <p><strong className="text-card-foreground">Coordinates:</strong> Lat: {cafe.latitude}, Lng: {cafe.longitude}</p>
-                )}
-                {cafe.socialMediaLinks && Object.keys(cafe.socialMediaLinks).length > 0 && (
-                  <div>
-                    <strong className="text-card-foreground">Social Links:</strong>
-                    <ul className="list-disc list-inside ml-4 text-sm">
-                      {Object.entries(cafe.socialMediaLinks).map(([platform, link]) => link && (
-                        <li key={platform}>
-                          <span className="capitalize">{platform}:</span> <a href={link} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline line-clamp-1 break-all">{link} <ExternalLink className="inline w-3 h-3" /></a>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </CardContent>
-              <CardFooter className="flex justify-end gap-3">
-                <Button 
-                  variant="destructive" 
-                  onClick={() => handleReject(cafe.id, cafe.logoLink)}
-                  disabled={isProcessing[cafe.id]}
-                  size="sm"
-                >
-                  {isProcessing[cafe.id] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
-                  Reject
-                </Button>
-                <Button 
-                  variant="default" 
-                  onClick={() => handleApprove(cafe)}
-                  disabled={isProcessing[cafe.id]}
-                  size="sm"
-                  className="bg-primary hover:bg-primary/90"
-                >
-                  {isProcessing[cafe.id] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                  Approve
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
+      {/* Stats Widgets (Placeholder) */}
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 px-8 py-6 flex-shrink-0">
+        <Card className="bg-neutral-900 rounded-xl p-6 shadow-sm border border-neutral-800">
+          <div className="flex items-center justify-between">
+            <span className="text-neutral-400 text-sm">Pending Submissions</span>
+          </div>
+          <div className="mt-4 text-3xl font-bold tracking-tight text-white">
+            {pendingCafes.length}
+          </div>
+        </Card>
+      </section>
+
+      {/* Pending Cafes List */}
+      <section className="px-8 pb-8 flex-1 overflow-hidden">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold tracking-tight text-white">
+            Pending Cafes ({pendingCafes.length})
+          </h2>
         </div>
-      )}
-    </div>
+        <ScrollArea className="h-full pr-4">
+          {isFetchingCafes && pendingCafes.length === 0 ? (
+            <div className="flex justify-center items-center py-10">
+              <Loader2 className="h-8 w-8 animate-spin text-primary dark:text-violet-500" />
+              <p className="ml-3 text-lg text-muted-foreground">
+                Loading pending cafes...
+              </p>
+            </div>
+          ) : pendingCafes.length === 0 ? (
+            <p className="text-center text-neutral-400 text-lg py-10">
+              No pending submissions. Great job! ✅
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {pendingCafes.map((cafe) => (
+                <Card
+                  key={cafe.id}
+                  className="flex flex-col justify-between bg-neutral-900 border border-neutral-800 text-neutral-100"
+                >
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-white">{cafe.name}</CardTitle>
+                    <CardDescription className="text-neutral-400">
+                      {cafe.address}, {cafe.state}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm text-neutral-300">
+                    {cafe.logoLink && (
+                      <div className="flex items-center gap-2 mb-2">
+                        <strong>Logo:</strong>
+                        <img
+                          src={cafe.logoLink}
+                          alt={`${cafe.name} logo`}
+                          className="w-20 h-20 object-contain border border-neutral-700 rounded-md"
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <strong>Halal Status:</strong>{" "}
+                      <Badge variant="secondary" className="bg-neutral-800 text-neutral-300 border-neutral-700">
+                        {cafe.halalStatus}
+                      </Badge>
+                    </div>
+                    <p>
+                      <strong>Opening Hours:</strong> {cafe.openingHours}
+                    </p>
+                    {cafe.latitude !== undefined &&
+                      cafe.longitude !== undefined && (
+                        <p>
+                          <strong>Coordinates:</strong> {cafe.latitude},{" "}
+                          {cafe.longitude}
+                        </p>
+                      )}
+                    {cafe.socialMediaLinks &&
+                      Object.keys(cafe.socialMediaLinks).length > 0 && (
+                        <div>
+                          <strong>Socials:</strong>
+                          <ul className="list-disc list-inside">
+                            {Object.entries(cafe.socialMediaLinks).map(
+                              ([platform, link]) => (
+                                <li key={platform}>
+                                  <Link
+                                    href={link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline text-violet-400 hover:text-violet-300"
+                                  >
+                                    {platform.charAt(0).toUpperCase() +
+                                      platform.slice(1)}
+                                  </Link>
+                                </li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                      )}
+                    {cafe.tags && cafe.tags.length > 0 && (
+                      <div>
+                        <strong>Tags:</strong>
+                        <div className="flex flex-wrap gap-1">
+                          {cafe.tags.map((tag) => (
+                            <Badge key={tag} variant="outline" className="border-neutral-700 text-neutral-300">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-center text-xs text-neutral-500 mt-2">
+                      <Clock className="w-3 h-3 mr-1" />
+                      <span>
+                        Submitted:{" "}
+                        {cafe.submittedAt instanceof Date
+                          ? cafe.submittedAt.toLocaleString()
+                          : "N/A"}
+                      </span>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex gap-2 justify-end pt-4">
+                    <Button
+                      onClick={() =>
+                        handleReject(cafe.id!, cafe.name, cafe.logoLink)
+                      }
+                      disabled={isProcessing.has(cafe.id!)}
+                      variant="destructive"
+                      size="sm"
+                    >
+                      {isProcessing.has(cafe.id!) ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <XCircle className="mr-2 h-4 w-4" />
+                      )}
+                      Reject
+                    </Button>
+                    <Button
+                      onClick={() => handleApprove(cafe)}
+                      disabled={isProcessing.has(cafe.id!)}
+                      size="sm"
+                    >
+                      {isProcessing.has(cafe.id!) ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                      )}
+                      Approve
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+      </section>
+    </>
   );
 }
