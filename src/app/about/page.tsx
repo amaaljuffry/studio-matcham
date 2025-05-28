@@ -17,7 +17,7 @@ export default function AboutPage() {
           </Button>
         </Link>
         <h1 className="text-2xl font-semibold text-primary flex items-center">
-          <InfoIcon className="w-6 h-6 mr-2" /> About Matcham
+          <InfoIcon className="w-6 h-6 mr-2" /> About 
         </h1>
         {/* Spacer to balance the back button, adjust width as needed */}
         <div className="w-36 sm:w-48"></div>
@@ -36,7 +36,7 @@ export default function AboutPage() {
                 This platform thrives on community spirit. We're constantly evolving, and new features will be introduced thoughtfully, much like the slow, deliberate whisking of a bowl of perfect matcha with a chasen.
               </p>
               <p>
-                Want to contribute? You can start by sharing your favorite local matcha cafes with the community. If you're a developer, our code is publicly available on GitHub – we welcome your contributions!
+                Want to contribute? You can start by sharing your favorite local matcha cafes with the community. If you're a developer, we welcome your contributions!
               </p>
             </div>
           </section>
@@ -78,7 +78,7 @@ export default function AboutPage() {
           </section>
         </div>
          <footer className="text-center p-4 mt-8 border-t border-border">
-          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Matcham. All rights reserved.</p>
+          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Matcham by PETAI. All rights reserved.</p>
           <nav className="mt-2 space-x-4">
             <Link href="/terms" className="text-xs text-primary hover:underline">Terms of Service</Link>
             <Link href="/privacy" className="text-xs text-primary hover:underline">Privacy Policy</Link>

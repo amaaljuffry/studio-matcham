@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -26,10 +25,10 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2 className="text-xl font-semibold text-primary mb-2">Introduction</h2>
             <p className="text-muted-foreground">
-              Welcome to Matcham. We are committed to protecting your personal information and your right to privacy. If you have any questions or concerns about our policy, or our practices with regards to your personal information, please contact us at [Your Contact Email or Link to Contact Page].
+              Welcome to Matcham. We are committed to protecting your personal information and your right to privacy. If you have any questions or concerns about our policy, or our practices with regards to your personal information, please contact us at contact@matcham.my
             </p>
             <p className="text-muted-foreground mt-2">
-              This Privacy Policy applies to all information collected through our website ([Your Website URL Here]), and/or any related services, sales, marketing or events (we refer to them collectively in this privacy policy as the "Services").
+              This Privacy Policy applies to all information collected through our website Matcham.my, and/or any related services, sales, marketing or events (we refer to them collectively in this privacy policy as the "Services").
             </p>
           </section>
 
@@ -48,6 +47,9 @@ export default function PrivacyPolicyPage() {
               <li>Usernames (if user accounts are implemented)</li>
               <li>Cafe details submitted by users</li>
             </ul>
+            <p className="text-muted-foreground mt-4">
+              Additionally, we may collect publicly available business information (such as cafe names, locations, and contact details) from online sources (e.g., Google Maps, public directories, official websites) for inclusion in our directory. This information is gathered and displayed to improve public access to local businesses.
+            </p>
           </section>
 
           <section>
@@ -55,18 +57,19 @@ export default function PrivacyPolicyPage() {
             <p className="text-muted-foreground">
               We use personal information collected via our Services for a variety of business purposes described below. We process your personal information for these purposes in reliance on our legitimate business interests, in order to enter into or perform a contract with you, with your consent, and/or for compliance with our legal obligations.
             </p>
-             <ul className="list-disc list-inside text-muted-foreground ml-4 mt-1 space-y-1">
-                <li>To facilitate account creation and logon process (if applicable).</li>
-                <li>To send administrative information to you.</li>
-                <li>To manage user submissions and operate the directory.</li>
-                <li>To respond to user inquiries/offer support to users.</li>
+            <ul className="list-disc list-inside text-muted-foreground ml-4 mt-1 space-y-1">
+              <li>To facilitate account creation and logon process (if applicable).</li>
+              <li>To send administrative information to you.</li>
+              <li>To manage user submissions and operate the directory.</li>
+              <li>To respond to user inquiries/offer support to users.</li>
+              <li>To build and maintain an informative and publicly accessible cafe directory, including data collected from publicly available online sources.</li>
             </ul>
           </section>
-          
+
           <section>
             <h2 className="text-xl font-semibold text-primary mb-2">Will Your Information Be Shared With Anyone?</h2>
             <p className="text-muted-foreground">
-              We only share information with your consent, to comply with laws, to provide you with services, to protect your rights, or to fulfill business obligations. Cafe information submitted by users is intended for public display on our directory.
+              We only share information with your consent, to comply with laws, to provide you with services, to protect your rights, or to fulfill business obligations. Business-related information submitted by users or gathered from public sources is intended for public display in our directory. Personal contact details (like email addresses) will not be shared publicly unless explicitly permitted.
             </p>
           </section>
 
@@ -80,16 +83,16 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2 className="text-xl font-semibold text-primary mb-2">Changes to This Policy</h2>
             <p className="text-muted-foreground">
-              We may update this privacy policy from time to time. The updated version will be indicated by an updated "Revised" date and the updated version will be effective as soon as it is accessible.
+              We may update this privacy policy from time to time. The updated version will be indicated by an updated "Last updated" date and the updated version will be effective as soon as it is accessible.
             </p>
           </section>
 
           <p className="text-muted-foreground mt-6 text-sm">
-            Last updated: [Date of Last Update]
+            Last updated: 23 May 2025
           </p>
         </div>
-         <footer className="text-center p-4 mt-8 border-t border-border">
-          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Matcham. All rights reserved.</p>
+        <footer className="text-center p-4 mt-8 border-t border-border">
+          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Matcham by PETAI. All rights reserved.</p>
           <nav className="mt-2 space-x-4">
             <Link href="/terms" className="text-xs text-primary hover:underline">Terms of Service</Link>
             <Link href="/privacy" className="text-xs text-primary hover:underline">Privacy Policy</Link>

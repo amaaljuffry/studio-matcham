@@ -1,27 +1,28 @@
-import type {Metadata} from 'next';
-// Removed Inter font import
+import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
-// Removed Inter font setup
-
 export const metadata: Metadata = {
   title: 'Matcham',
-  description: 'Find the best matcha cafes in Malaysia.',
-};
+  description: 'Your dedicated guide to the best matcha experiences in Malaysia',
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/favicon.ico',
+    shortcut: '/favicon.ico'
+  }
+}
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <html lang="en" suppressHydrationWarning={true}>
-      {/* Removed font variable from body className */}
+    <html lang="en">
       <body className="antialiased">
         {children}
-        <Toaster />
       </body>
     </html>
-  );
+  )
 }
+

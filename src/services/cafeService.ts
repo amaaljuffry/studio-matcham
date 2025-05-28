@@ -4,6 +4,8 @@ import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject }
 import { db, storage } from '@/lib/firebase';
 import type { Cafe } from '@/types';
 
+
+
 const cafesCollectionRef = collection(db, 'cafes');
 const pendingCafesCollectionRef = collection(db, 'pendingCafes');
 

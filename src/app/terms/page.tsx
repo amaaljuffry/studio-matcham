@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -23,67 +22,81 @@ export default function TermsPage() {
 
       <main className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="mx-auto w-full md:max-w-3xl space-y-6">
+
           <section>
             <h2 className="text-xl font-semibold text-primary mb-2">Welcome to Matcham!</h2>
             <p className="text-muted-foreground">
-              These terms and conditions outline the rules and regulations for the use of Matcham's Website, located at [Your Website URL Here].
+              These terms and conditions outline the rules and regulations for using Matcham’s website, located at https://matcha.my.
             </p>
             <p className="text-muted-foreground mt-2">
-              By accessing this website we assume you accept these terms and conditions. Do not continue to use Matcham if you do not agree to take all of the terms and conditions stated on this page.
+              By accessing or using this website, you agree to comply with and be bound by these terms. If you do not agree, please do not use the site.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold text-primary mb-2">User Submissions</h2>
             <p className="text-muted-foreground">
-              By submitting content (e.g., cafe information, reviews, images) to Matcham, you grant us a non-exclusive, worldwide, royalty-free, irrevocable, sub-licensable license to use, reproduce, adapt, publish, translate and distribute it in any and all media.
+              By submitting content (e.g., cafe information, reviews, images) to Matcham, you grant us a non-exclusive, worldwide, royalty-free, irrevocable, sublicensable license to use, reproduce, adapt, publish, translate, and distribute it in any and all media.
             </p>
             <p className="text-muted-foreground mt-2">
               You warrant and represent that:
             </p>
             <ul className="list-disc list-inside text-muted-foreground ml-4 mt-1 space-y-1">
               <li>You are entitled to submit the content and have all necessary licenses and consents to do so;</li>
-              <li>The content does not invade any intellectual property right, including without limitation copyright, patent or trademark of any third party;</li>
-              <li>The content does not contain any defamatory, libelous, offensive, indecent or otherwise unlawful material which is an invasion of privacy.</li>
+              <li>The content does not infringe any intellectual property rights, including copyright, patent, or trademark of any third party;</li>
+              <li>The content does not contain defamatory, libelous, offensive, indecent, or otherwise unlawful material or invade anyone’s privacy.</li>
             </ul>
             <p className="text-muted-foreground mt-2">
-              Matcham reserves the right to monitor all submissions and to remove any content which can be considered inappropriate, offensive or causes breach of these Terms and Conditions.
+              We reserve the right to monitor, verify, and remove submissions that violate these terms.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold text-primary mb-2">Publicly Available Information & Data Sources</h2>
+            <p className="text-muted-foreground">
+              Matcham may display publicly available business information (such as names, locations, operating hours) sourced from third-party platforms including but not limited to Google Maps, social media, and official business websites.
+            </p>
+            <p className="text-muted-foreground mt-2">
+              We comply with the terms and conditions of these third-party services and do not engage in unauthorized data scraping. Our data sourcing follows legal and ethical standards.
+            </p>
+            <p className="text-muted-foreground mt-2">
+              If you are a business owner and would like to update or remove your listing, please contact us at <a href="mailto:contact@matcha.my" className="text-primary underline">contact@matcha.my</a>.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold text-primary mb-2">Accuracy of Information</h2>
             <p className="text-muted-foreground">
-              While we strive to ensure that the information on this website is correct, we do not warrant its completeness or accuracy; nor do we promise to ensure that the website remains available or that the material on the website is kept up to date. Information is provided on a best-effort basis.
+              While we strive to ensure the information is accurate and up-to-date, we do not guarantee its completeness or reliability. Users are encouraged to verify details directly with the businesses.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold text-primary mb-2">Limitation of Liability</h2>
             <p className="text-muted-foreground">
-              To the maximum extent permitted by applicable law, we exclude all representations, warranties and conditions relating to our website and the use of this website. Nothing in this disclaimer will:
+              To the fullest extent permitted by law, we disclaim all liability arising from your use of this website. Nothing in this section excludes liability that cannot legally be excluded.
             </p>
-             <ul className="list-disc list-inside text-muted-foreground ml-4 mt-1 space-y-1">
-                <li>limit or exclude our or your liability for death or personal injury;</li>
-                <li>limit or exclude our or your liability for fraud or fraudulent misrepresentation;</li>
-                <li>limit any of our or your liabilities in any way that is not permitted under applicable law; or</li>
-                <li>exclude any of our or your liabilities that may not be excluded under applicable law.</li>
+            <ul className="list-disc list-inside text-muted-foreground ml-4 mt-1 space-y-1">
+              <li>We do not exclude liability for death or personal injury caused by our negligence;</li>
+              <li>Or for fraud or fraudulent misrepresentation;</li>
+              <li>Or for any matter which it would be illegal to limit or exclude our liability.</li>
             </ul>
           </section>
-          
+
           <section>
             <h2 className="text-xl font-semibold text-primary mb-2">Changes to Terms</h2>
             <p className="text-muted-foreground">
-              We reserve the right to revise these terms and conditions at any time. By using this website, you are expected to review these terms on a regular basis.
+              We may revise these terms at any time. Continued use of Matcham after updates constitutes your acceptance. Please review these terms periodically.
             </p>
           </section>
 
           <p className="text-muted-foreground mt-6 text-sm">
-            Last updated: [Date of Last Update]
+            Last updated: 22 May 2025
           </p>
         </div>
+
         <footer className="text-center p-4 mt-8 border-t border-border">
-          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Matcham. All rights reserved.</p>
+          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Matcham by PETAI. All rights reserved.</p>
           <nav className="mt-2 space-x-4">
             <Link href="/terms" className="text-xs text-primary hover:underline">Terms of Service</Link>
             <Link href="/privacy" className="text-xs text-primary hover:underline">Privacy Policy</Link>

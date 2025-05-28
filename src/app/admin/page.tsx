@@ -72,7 +72,7 @@ export default function AdminPage() {
     const success = await rejectCafe(cafeId, logoLink);
     if (success) {
       toast({ title: "Cafe Rejected", description: `Submission has been rejected.` });
-      fetchPending(); // Refresh list
+      fetchPending(); // Refresh list to ensure data consistency
     } else {
       toast({ title: "Rejection Failed", description: `Could not reject submission.`, variant: "destructive" });
     }
