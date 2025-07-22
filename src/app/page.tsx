@@ -131,10 +131,32 @@ export default function Home() {
     setError(null);
 
     try {
-      const { data, error: fetchError } = await supabase
+      let query = supabase
         .from("cafes")
-        .select("*")
+        .select("*", { count: "exact" })
         .order("name", { ascending: true });
+
+      if (searchTerm.trim() !== "") {
+        query = query.ilike("name", `%${searchTerm.trim()}%`);
+      }
+
+      if (selectedStateFilter !== "All") {
+        query = query.eq("state", selectedStateFilter);
+      }
+
+      if (selectedHalalFilter !== "All") {
+        query = query.eq("halalstatus", selectedHalalFilter);
+      }
+
+      if (selectedTagsFilter.length > 0) {
+        query = query.overlaps("tags", selectedTagsFilter);
+      }
+
+      const from = (currentPage - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      query = query.range(from, to);
+
+      const { data, error: fetchError, count } = await query;
 
       if (fetchError) {
         setError(fetchError.message);
@@ -144,40 +166,10 @@ export default function Home() {
         return;
       }
 
-      let currentCafes = data ?? [];
+      setFilteredCafes(data ?? []);
+      setTotalCount(count ?? 0);
+      setCurrentCafesToDisplay(data ?? []);
 
-      if (searchTerm.trim() !== "") {
-        currentCafes = currentCafes.filter((cafe) =>
-          cafe.name.toLowerCase().includes(searchTerm.trim().toLowerCase())
-        );
-      }
-
-      if (selectedStateFilter !== "All") {
-        currentCafes = currentCafes.filter(
-          (cafe) => cafe.state === selectedStateFilter
-        );
-      }
-
-      if (selectedHalalFilter !== "All") {
-        currentCafes = currentCafes.filter(
-          (cafe) => cafe.halalstatus === selectedHalalFilter
-        );
-      }
-
-      if (selectedTagsFilter.length > 0) {
-        currentCafes = currentCafes.filter(
-          (cafe) =>
-            cafe.tags &&
-            cafe.tags.some((tag: string) => selectedTagsFilter.includes(tag))
-        );
-      }
-
-      setFilteredCafes(currentCafes);
-      setTotalCount(currentCafes.length);
-
-      const from = (currentPage - 1) * PAGE_SIZE;
-      const to = from + PAGE_SIZE;
-      setCurrentCafesToDisplay(currentCafes.slice(from, to));
     } catch (err: any) {
       setError(err.message);
       setFilteredCafes([]);
@@ -231,8 +223,12 @@ export default function Home() {
 
   useEffect(() => {
     fetchAndFilterCafes();
+  }, [fetchAndFilterCafes, currentPage]);
+
+  useEffect(() => {
+    // Only fetch for map on initial load, no need to refetch on filter change
     fetchAllCafesForMap();
-  }, [fetchAndFilterCafes, fetchAllCafesForMap]);
+  }, [fetchAllCafesForMap]);
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
@@ -401,9 +397,9 @@ export default function Home() {
           ) : (
             <>
               {/* Filters Section */}
-              <div className="mb-6 p-4 border border-border rounded-lg shadow-sm bg-card max-w-2xl mx-auto">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-                  <div>
+              <div className="mb-6 p-4 border border-border rounded-lg shadow-sm bg-card mx-auto w-full max-w-xs">
+  <div className="flex flex-col items-center">
+                  
                     <Label
                       htmlFor="state-filter"
                       className="text-sm font-medium text-card-foreground"
@@ -429,7 +425,8 @@ export default function Home() {
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
+                  
+                  {/*
                   <div>
                     <Label
                       htmlFor="halal-filter"
@@ -494,6 +491,7 @@ export default function Home() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
+                  */}
                 </div>
               </div>
 
@@ -505,8 +503,8 @@ export default function Home() {
               ) : (
                 <>
                   <h2 className="text-xl md:text-2xl font-bold mb-1 text-primary">
-                    {filteredCafes.length} Matcha Cafe
-                    {filteredCafes.length === 1 ? "" : "s"} Found
+                    {totalCount} Matcha Cafe
+                    {totalCount === 1 ? "" : "s"} Found
                   </h2>
                   <p className="text-sm text-muted-foreground mb-4 text-sm">
                     Explore matcha cafes across Malaysia. Use the filters above.
@@ -541,7 +539,13 @@ export default function Home() {
                                 />
                               ) : (
                                 <div className="w-full h-full bg-muted flex items-center justify-center rounded-lg">
-                                  <Leaf className="w-12 h-12 text-muted-foreground" />
+                                  <Image
+                                    src="/logo_navbar.svg"
+                                    alt="Cafe placeholder logo"
+                                    fill={true}
+                                    sizes="(max-width: 639px) 100vw, 12rem"
+                                    className="object-contain"
+                                  />
                                 </div>
                               )}
                             </div>

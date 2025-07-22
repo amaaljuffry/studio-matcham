@@ -9,6 +9,9 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-sans)"],
+      },
        colors: {
         // Core colors (These are the ones you need to add/ensure are here)
         background: "hsl(var(--background))", // ADD THIS LINE

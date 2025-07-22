@@ -31,7 +31,7 @@ const Banner5 = ({
   return (
     <section className="absolute top-1 right-0 left-0 z-50 mx-auto max-w-2xl animate-fade-in">
       <div className="mx-4">
-        <div className="w-full rounded-lg border bg-white p-3 shadow-md">
+        <div className="w-full rounded-lg border bg-white dark:bg-gray-800 p-3 shadow-md">
           <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <Button
               variant="outline"
@@ -45,8 +45,8 @@ const Banner5 = ({
             <div className="flex flex-col items-start gap-3 pt-2 md:flex-row md:items-center md:pt-0">
               <Sparkles className="h-5 w-5 shrink-0" />
               <div className="flex flex-col gap-1 md:flex-row md:items-center">
-                <p className="text-sm font-medium">{title}</p>
-                <p className="text-sm text-muted-foreground">{description}</p>
+                <p className="text-sm font-medium dark:text-white">{title}</p>
+                <p className="text-sm text-muted-foreground dark:text-gray-300">{description}</p>
               </div>
             </div>
 
