@@ -14,7 +14,7 @@ import { mapStyles } from "@/styles/mapStyles";
 interface CafeMapProps {
   apiKey: string | undefined;
   cafes: Cafe[];
-  onMarkerClick: (cafe: Cafe) => void;
+  onMarkerClick: (cafe: Cafe | null) => void;
   selectedCafe: Cafe | null;
   initialCenter: { lat: number; lng: number }; // Fallback center
   initialZoom: number;
@@ -33,6 +33,7 @@ export function CafeMap({
   initialCenter,
   initialZoom,
 }: CafeMapProps) {
+  console.log("CafeMap component rendering with API Key:", apiKey);
   // State for the map's viewport center and zoom
   const [currentMapCenter, setCurrentMapCenter] = useState(initialCenter);
   const [currentZoom, setCurrentZoom] = useState(initialZoom);
@@ -78,7 +79,8 @@ export function CafeMap({
     setCurrentZoom(ev.detail.zoom);         // This updates the viewport zoom
   }, []);
 
-  if (!apiKey) {
+  // Check if API key is provided and not an empty string
+  if (!apiKey || apiKey === '') {
     return (
       <div className="flex items-center justify-center h-full bg-muted">
         <p className="text-destructive-foreground p-4 bg-destructive rounded-md">
@@ -103,11 +105,13 @@ export function CafeMap({
         disableDefaultUI={true}
         mapId="matchame-map"
         className="w-full h-full"
-        options={{
-          styles: mapStyles,
-        }}
       >
-        {cafes.map((cafe) => (
+        {cafes.map((cafe) => {
+          // Only render marker if latitude and longitude are not null
+          if (cafe.latitude === null || cafe.longitude === null) {
+            return null;
+          }
+          return (
           <AdvancedMarker
             key={cafe.id}
             position={{ lat: cafe.latitude, lng: cafe.longitude }}
@@ -125,7 +129,8 @@ export function CafeMap({
               glyphColor={matchaGlyphColor}
             />
           </AdvancedMarker>
-        ))}
+          );
+        })}
 
         {/* "Your Location" pin - uses the fixed userGeoLocation */}
         {userGeoLocation && !geolocationError && ( // Render if userGeoLocation is successfully set

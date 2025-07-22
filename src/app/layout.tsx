@@ -8,6 +8,7 @@ import "./globals.css";
 // You will create a new client component to wrap NextAuthProvider
 import ClientProviders from "@/components/ClientProviders"; // <-- NEW Client Component wrapper
 import { Toaster } from "@/components/ui/toaster"; // Assuming this is also a client component
+import { CookieConsent } from "@/components/cookie-consent";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         {/*
           Wrap client-side providers (like SessionProvider and Toaster)
@@ -34,6 +35,7 @@ export default function RootLayout({
           {children}
           {/* Toaster should ideally also be part of ClientProviders if it uses client hooks */}
           <Toaster />
+          <CookieConsent variant="minimal" />
         </ClientProviders>
       </body>
     </html>

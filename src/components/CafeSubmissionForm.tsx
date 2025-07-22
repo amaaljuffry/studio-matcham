@@ -17,8 +17,9 @@ import { malaysianStates, additionalTagsList, halalStatusesList } from '@/data/c
 import type { HalalStatus, Cafe } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { addCafeToPending, generateCafeId } from '@/services/cafeService';
-import { Loader2, UploadCloud, MapPin } from 'lucide-react';
+import { Loader2, UploadCloud, MapPin, LinkIcon } from 'lucide-react';
 import Link from 'next/link';
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const cafeSubmissionSchema = z.object({
   name: z.string().min(3, { message: "Cafe name must be at least 3 characters." }),
@@ -27,20 +28,16 @@ const cafeSubmissionSchema = z.object({
   latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude").optional(),
   longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude").optional(),
   logoFile: z.instanceof(File).optional().nullable(),
-  halalStatus: z.enum(halalStatusesList.map(s => s.id) as [HalalStatus, ...HalalStatus[]], {
+  halalstatus: z.enum(halalStatusesList.map(s => s.id) as [HalalStatus, ...HalalStatus[]], {
     required_error: "Please select a halal status."
   }),
   tags: z.array(z.string())
     .max(3, { message: "You can only select up to 3 tags" })
     .optional(),
-  openingHours: z.string().min(5, { message: "Opening hours information seems too short." }),
+  openinghours: z.string().min(5, { message: "Opening hours information seems too short." }),
   websiteLink: z.string().url({ message: "Please enter a valid URL for the website." }).optional().or(z.literal('')),
-  socialInstagram: z.string().url({ message: "Please enter a valid URL for Instagram." }).optional().or(z.literal('')),
-  socialFacebook: z.string().url({ message: "Please enter a valid URL for Facebook." }).optional().or(z.literal('')),
-  socialTwitter: z.string().url({ message: "Please enter a valid URL for Twitter." }).optional().or(z.literal('')),
-  socialTiktok: z.string().url({ message: "Please enter a valid URL for TikTok." }).optional().or(z.literal('')),
   socialWhatsapp: z.string()
-    .regex(/^(https:\/\/wa\.me\/\S+|^\d{10,15}$)/, { message: "Enter a valid WhatsApp link (e.g., https://wa.me/60123456789) or phone number."})
+    .regex(/^(https?:\/\/wa\.me\/\S+|^\d{10,15}$)/, { message: "Enter a valid WhatsApp link (e.g., https://wa.me/60123456789) or phone number."})
     .optional().or(z.literal('')),
   termsAccepted: z.boolean().refine(value => value === true, {
     message: "You must accept the terms and conditions to submit a cafe."
@@ -56,18 +53,22 @@ interface CafeSubmissionFormProps {
 export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
   const { register, handleSubmit, control, formState: { errors, isSubmitting }, reset, watch, setValue } = useForm<CafeSubmissionFormZodData>({
     resolver: zodResolver(cafeSubmissionSchema),
+    mode: "onChange",
     defaultValues: {
       tags: [],
       termsAccepted: false,
       logoFile: null,
-      halalStatus: "Not Specified", // Assuming "Not Specified" is a valid ID in halalStatusesList
+      halalstatus: "Not Specified",
+      openinghours: "",
     }
   });
   const { toast } = useToast();
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [isSubmissionSuccessDialogOpen, setIsSubmissionSuccessDialogOpen] = useState(false);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    console.log('handleFileChange: File detected:', file);
     if (file) {
       setValue("logoFile", file);
       const reader = new FileReader();
@@ -82,44 +83,58 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
   };
 
   const onSubmit: SubmitHandler<CafeSubmissionFormZodData> = async (formData) => {
-    const cafeId = generateCafeId(formData.name);
-    const cafeDataForDb: Omit<Cafe, 'id' | 'submittedAt' | 'approvedAt' | 'logoLink'> & { rating: number } = {
+    console.log('onSubmit: formData.logoFile:', formData.logoFile);
+    const now = new Date().toISOString();
+
+    const cafeDataForDb: Omit<Cafe, 'approvedat' | 'logoLink' | 'socialmedialinks' | 'userRatingTotal' | 'createdAt' | 'updatedAt' | 'id'> & {
+      websitelink?: string | null;
+      socialwhatsapp?: string | null;
+    } = {
       name: formData.name,
       address: formData.address,
       state: formData.state,
-      latitude: formData.latitude || 0,
-      longitude: formData.longitude || 0,
-      openingHours: formData.openingHours,
-      rating: 0,
-      halalStatus: formData.halalStatus,
+      latitude: formData.latitude || null,
+      longitude: formData.longitude || null,
+      openinghours: formData.openinghours,
+      halalstatus: formData.halalstatus as HalalStatus,
       tags: formData.tags || [],
-      socialMediaLinks: {},
+      rating: 0,
+      submittedat: now,
+      businessstatus: "PENDING_REVIEW",
+      googleplaceid: null, // Assuming no Google Place ID on submission
+      pricelevel: null, // Assuming no price level on submission
     };
 
-    const socialLinks: Partial<Cafe['socialMediaLinks']> = {};
-    if (formData.websiteLink && formData.websiteLink.trim() !== '') socialLinks.website = formData.websiteLink;
-    if (formData.socialInstagram && formData.socialInstagram.trim() !== '') socialLinks.instagram = formData.socialInstagram;
-    if (formData.socialFacebook && formData.socialFacebook.trim() !== '') socialLinks.facebook = formData.socialFacebook;
-    if (formData.socialTwitter && formData.socialTwitter.trim() !== '') socialLinks.twitter = formData.socialTwitter;
-    if (formData.socialTiktok && formData.socialTiktok.trim() !== '') socialLinks.tiktok = formData.socialTiktok;
-    if (formData.socialWhatsapp && formData.socialWhatsapp.trim() !== '') socialLinks.whatsapp = formData.socialWhatsapp;
+    const ensureHttps = (url: string | undefined): string | undefined => {
+      if (!url || url.trim() === '') return undefined;
+      const trimmedUrl = url.trim();
 
-    if (Object.keys(socialLinks).length > 0) {
-      cafeDataForDb.socialMediaLinks = socialLinks as Cafe['socialMediaLinks'];
+      if (!/^https?:\/\//i.test(trimmedUrl)) {
+        return `https://${trimmedUrl}`;
+      }
+      return trimmedUrl;
+    };
+
+    cafeDataForDb.websitelink = ensureHttps(formData.websiteLink);
+
+    if (formData.socialWhatsapp) {
+      if (/^(https?:\/\/wa\.me\/)/i.test(formData.socialWhatsapp)) {
+        cafeDataForDb.socialwhatsapp = formData.socialWhatsapp.trim(); // Just the link without prepending https again
+      } else if (/^\d{10,15}$/.test(formData.socialWhatsapp.trim())) {
+        cafeDataForDb.socialwhatsapp = formData.socialWhatsapp.trim();
+      } else {
+        cafeDataForDb.socialwhatsapp = null;
+      }
+    } else {
+      cafeDataForDb.socialwhatsapp = null;
     }
 
-    const submissionResultId = await addCafeToPending(cafeId, cafeDataForDb, formData.logoFile);
+    const submissionResultId = await addCafeToPending(cafeDataForDb, formData.logoFile);
 
     if (submissionResultId) {
-      toast({
-        title: "Submission Received! 🍵✨",
-        description: `${formData.name} has been submitted for review. Thank you for contributing!`,
-      });
+      setIsSubmissionSuccessDialogOpen(true);
       reset();
       setLogoPreview(null);
-      if (onFormSubmit) {
-        onFormSubmit();
-      }
     } else {
       toast({
         title: "Submission Failed",
@@ -136,7 +151,7 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
       <CardHeader className="px-3 pt-0 text-center md:text-left">
         <CardTitle className="text-xl md:text-2xl">Submit Your Matcha Café to Our Directory! 🍵✨</CardTitle>
         <CardDescription className="text-sm">
-          We’re excited to feature authentic matcha cafés that serve delicious Japanese matcha drinks and desserts.
+          We're excited to feature authentic matcha cafés that serve delicious Japanese matcha drinks and desserts.
           Please fill in the details below so fellow matcha lovers can find and enjoy your spot!
         </CardDescription>
       </CardHeader>
@@ -147,7 +162,7 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
           {/* Each direct child div of the form gets mr-4 for scrollbar spacing */}
           <div className="space-y-2 mx-1"> 
             <h3 className="text-lg font-semibold">1. Café Name</h3>
-            <Label htmlFor="name">Please enter just the café’s name (no slogans or extra text).</Label>
+            <Label htmlFor="name">Please enter just the café's name (no slogans or extra text).</Label>
             <Input id="name" {...register("name")} className="mt-1 w-full " />
             {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
           </div>
@@ -183,9 +198,9 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
                 {errors.state && <p className="text-xs text-destructive mt-1">{errors.state.message}</p>}
               </div>
               <div>
-                <Label htmlFor="openingHours">Opening Hours</Label>
-                <Input id="openingHours" {...register("openingHours")} className="mt-1 w-full" placeholder="e.g., 10 AM - 10 PM Daily"/>
-                {errors.openingHours && <p className="text-xs text-destructive mt-1">{errors.openingHours.message}</p>}
+                <Label htmlFor="openinghours">Opening Hours</Label>
+                <Input id="openinghours" {...register("openinghours")} className="mt-1 w-full" placeholder="e.g., 10 AM - 10 PM Daily"/>
+                {errors.openinghours && <p className="text-xs text-destructive mt-1">{errors.openinghours.message}</p>}
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -204,7 +219,7 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
 
           <div className="space-y-2 mr-4"> {/* ADDED mr-4 HERE */}
             <h3 className="text-lg font-semibold flex items-center"><UploadCloud className="w-5 h-5 mr-2 text-primary" /> 3. Upload Your Logo</h3>
-            <Label htmlFor="logoFile">If you’re the owner, upload your café’s logo (e.g., PNG, JPG) to help visitors recognize you.</Label>
+            <Label htmlFor="logoFile">If you're the owner, upload your café's logo (e.g., PNG, JPG) to help visitors recognize you.</Label>
             <Input
               id="logoFile"
               type="file"
@@ -223,24 +238,25 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
 
           <div className="space-y-2 mr-4"> {/* ADDED mr-4 HERE */}
             <h3 className="text-lg font-semibold">4. Halal Status (Important for Muslim Customers)</h3>
-            {/* ... (content of Halal status) ... */}
             <Controller
-              name="halalStatus"
+              name="halalstatus"
               control={control}
               render={({ field }) => (
-                <RadioGroup /* ... */ >
-                  {halalStatusesList.map((status) => (
-                    <div key={status.id} className="flex items-center space-x-2 p-2 border rounded-md hover:bg-muted/50">
-                      <RadioGroupItem value={status.id} id={`halal-${status.id}`} />
-                      <Label htmlFor={`halal-${status.id}`} className="font-normal cursor-pointer">
-                        {status.label} <span className="text-muted-foreground text-xs">{status.description}</span>
-                      </Label>
+                <RadioGroup
+                  onValueChange={field.onChange}
+                  value={field.value}
+                  className="flex flex-col space-y-1 mt-2"
+                >
+                  {halalStatusesList.map(status => (
+                    <div key={status.id} className="flex items-center space-x-2">
+                      <RadioGroupItem value={status.id} id={status.id} />
+                      <Label htmlFor={status.id}>{status.label}</Label>
                     </div>
                   ))}
                 </RadioGroup>
               )}
             />
-            {errors.halalStatus && <p className="text-xs text-destructive mt-1">{errors.halalStatus.message}</p>}
+            {errors.halalstatus && <p className="text-xs text-destructive mt-1">{errors.halalstatus.message}</p>}
           </div>
 
           <div className="space-y-2 mr-4"> {/* ADDED mr-4 HERE */}
@@ -296,41 +312,29 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
             </p>
           </div>
 
-          <div className="space-y-2 mx-1"> {/* ADDED mr-4 HERE */}
-            <h3 className="text-lg font-semibold">6. Share Your Social Media Links</h3>
-            <p className="text-sm text-muted-foreground">Let visitors see your menu, updates, and beautiful matcha photos:</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="websiteLink">Website Link (Optional)</Label>
-                <Input id="websiteLink" type="url" {...register("websiteLink")} className="mt-1 w-full" placeholder="https://yourcafe.com" />
-                {errors.websiteLink && <p className="text-xs text-destructive mt-1">{errors.websiteLink.message}</p>}
-              </div>
-              {/* ... Add w-full to all other inputs in this grid ... */}
-              <div>
-                <Label htmlFor="socialInstagram">Instagram (Optional)</Label>
-                <Input id="socialInstagram" type="url" {...register("socialInstagram")} className="mt-1 w-full" placeholder="https://instagram.com/yourcafe" />
-                {errors.socialInstagram && <p className="text-xs text-destructive mt-1">{errors.socialInstagram.message}</p>}
-              </div>
-              <div>
-                <Label htmlFor="socialFacebook">Facebook (Optional)</Label>
-                <Input id="socialFacebook" type="url" {...register("socialFacebook")} className="mt-1 w-full" placeholder="https://facebook.com/yourcafe" />
-                {errors.socialFacebook && <p className="text-xs text-destructive mt-1">{errors.socialFacebook.message}</p>}
-              </div>
-              <div>
-                <Label htmlFor="socialTwitter">Twitter / X (Optional)</Label>
-                <Input id="socialTwitter" type="url" {...register("socialTwitter")} className="mt-1 w-full" placeholder="https://x.com/yourcafe" />
-                {errors.socialTwitter && <p className="text-xs text-destructive mt-1">{errors.socialTwitter.message}</p>}
-              </div>
-              <div>
-                <Label htmlFor="socialTiktok">TikTok (Optional)</Label>
-                <Input id="socialTiktok" type="url" {...register("socialTiktok")} className="mt-1 w-full" placeholder="https://tiktok.com/@yourcafe" />
-                {errors.socialTiktok && <p className="text-xs text-destructive mt-1">{errors.socialTiktok.message}</p>}
-              </div>
-              <div>
-                <Label htmlFor="socialWhatsapp">WhatsApp (Optional)</Label>
-                <Input id="socialWhatsapp" type="text" {...register("socialWhatsapp")} className="mt-1 w-full" placeholder="https://wa.me/60123456789 or 0123456789" />
-                {errors.socialWhatsapp && <p className="text-xs text-destructive mt-1">{errors.socialWhatsapp.message}</p>}
-              </div>
+          <div className="space-y-2 mx-1"> 
+            <h3 className="text-lg font-semibold flex items-center"><LinkIcon className="w-5 h-5 mr-2 text-primary" /> 3. Links</h3>
+            <div>
+              <Label htmlFor="websiteLink">Website (URL)</Label>
+              <Input
+                id="websiteLink"
+                type="url"
+                placeholder="https://www.example.com"
+                {...register("websiteLink")}
+                className="mt-1 w-full"
+              />
+              {errors.websiteLink && <p className="text-xs text-destructive mt-1">{errors.websiteLink.message}</p>}
+            </div>
+            <div>
+              <Label htmlFor="socialWhatsapp">WhatsApp Number or Link</Label>
+              <Input
+                id="socialWhatsapp"
+                type="text"
+                placeholder="e.g., 60123456789 or https://wa.me/60123456789"
+                {...register("socialWhatsapp")}
+                className="mt-1 w-full"
+              />
+              {errors.socialWhatsapp && <p className="text-xs text-destructive mt-1">{errors.socialWhatsapp.message}</p>}
             </div>
           </div>
 
@@ -363,14 +367,32 @@ export function CafeSubmissionForm({ onFormSubmit }: CafeSubmissionFormProps) {
             Thank you for sharing your love of matcha with our community! We review submissions carefully to keep our directory authentic and welcoming.
           </p>
 
-          <div className="pt-2 pb-4 mr-4"> {/* ADDED mr-4 HERE */}
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <div className="pt-2 pb-4 mr-4">
+            <Button type="submit" className="w-full" disabled={isSubmitting || !watch("termsAccepted") || Object.keys(errors).length > 0}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Submit Cafe for Review
             </Button>
           </div>
         </form>
       </CardContent>
+
+      {/* Submission Success Dialog */}
+      <AlertDialog open={isSubmissionSuccessDialogOpen} onOpenChange={setIsSubmissionSuccessDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Submission Received! 🍵✨</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your cafe submission has been received and is pending review.
+              Thank you for contributing to the Matcham community!
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => { setIsSubmissionSuccessDialogOpen(false); if(onFormSubmit) onFormSubmit(); }}>
+              Awesome!
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

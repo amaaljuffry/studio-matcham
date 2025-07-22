@@ -9,7 +9,7 @@ export default function PrivacyPolicyPage() {
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <header className="p-4 border-b border-border flex justify-between items-center sticky top-0 bg-background/80 backdrop-blur-sm z-20">
         <Link href="/" passHref>
-          <Button variant="outline" size="sm" className="hover:bg-accent/10 hover:text-accent-foreground border-accent text-accent flex items-center shadow-sm">
+          <Button variant="default" size="sm" className="hover:bg-accent/10 hover:text-accent-foreground border-accent  flex items-center shadow-sm">
             <ChevronLeft className="w-4 h-4 mr-2" />
             Back to Cafes
           </Button>

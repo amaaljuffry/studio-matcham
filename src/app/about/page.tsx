@@ -5,13 +5,15 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, Info as InfoIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import Footer from '@/components/Footer';
+
 
 export default function AboutPage() {
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <header className="p-4 border-b border-border flex justify-between items-center sticky top-0 bg-background/80 backdrop-blur-sm z-20">
         <Link href="/" passHref>
-          <Button variant="outline" size="sm" className="hover:bg-accent/10 hover:text-accent-foreground border-accent text-accent flex items-center shadow-sm">
+          <Button variant="default" size="sm" className="hover:bg-accent/10 hover:text-accent-foreground border-accent  flex items-center shadow-sm">
             <ChevronLeft className="w-4 h-4 mr-2" />
             Back to Cafes
           </Button>
@@ -77,13 +79,7 @@ export default function AboutPage() {
             </p>
           </section>
         </div>
-         <footer className="text-center p-4 mt-8 border-t border-border">
-          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Matcham by PETAI. All rights reserved.</p>
-          <nav className="mt-2 space-x-4">
-            <Link href="/terms" className="text-xs text-primary hover:underline">Terms of Service</Link>
-            <Link href="/privacy" className="text-xs text-primary hover:underline">Privacy Policy</Link>
-          </nav>
-        </footer>
+        <Footer />
       </main>
     </div>
   );

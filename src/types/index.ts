@@ -19,20 +19,24 @@ export type SocialMediaLinks = {
 
 // Define the main Cafe type
 export type Cafe = {
-  id: string; // Document ID from Firestore
+  id: string; // Document ID from Firestore or Supabase UUID
   name: string;
   address: string;
   state: string;
-  latitude: number;
-  longitude: number;
-  logoLink?: string | null; // URL to the logo in Firebase Storage
-  halalStatus: HalalStatus;
-  tags?: string[]; // Array of selected tags (e.g., 'cozy', 'wifi')
-  openingHours: string;
-  socialMediaLinks?: SocialMediaLinks;
-  rating: number; // Average user rating
-  userRatingTotal: number; // Total number of ratings (for calculating average)
-  submittedAt: Date; // Timestamp when the cafe was submitted (Date object after conversion)
-  approvedAt?: Date | null; // Timestamp when the cafe was approved (Date object after conversion)
-  businessStatus: "PENDING_REVIEW" | "OPERATIONAL" | "CLOSED" | "TEMPORARILY_CLOSED"; // Status
+  latitude: number | null;
+  longitude: number | null;
+  logoLink?: string | null; // URL to the logo
+  halalstatus: HalalStatus; // Corrected to all lowercase to match Supabase schema
+  tags?: string[]; // Array of selected tags
+  openinghours: string; // Corrected to all lowercase to match Supabase schema
+  socialmedialinks?: SocialMediaLinks; // Corrected to all lowercase to match Supabase schema
+  rating?: number; // Average user rating
+  userRatingTotal?: number; // Total number of ratings (camelCase)
+  createdAt?: Date | string; // Timestamp when the cafe was created
+  updatedAt?: Date | string; // Timestamp when the cafe was last updated
+  submittedat: Date | string; // Timestamp when the cafe was submitted
+  approvedat?: Date | null; // Timestamp when the cafe was approved
+  businessstatus: "PENDING_REVIEW" | "OPERATIONAL" | "CLOSED" | "TEMPORARILY_CLOSED" | "REJECTED"; // Status
+  googleplaceid?: string | null; // Added from schema
+  pricelevel?: number | null; // Added from schema
 };

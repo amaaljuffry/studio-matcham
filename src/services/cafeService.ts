@@ -1,530 +1,466 @@
 // src/services/cafeService.ts
+import { SupabaseClient, PostgrestError } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabaseClient'; // Adjust this path to your Supabase client instance
+import type { Cafe, HalalStatus } from '@/types'; // Import Cafe and HalalStatus from types
 
-import {
-  collection,
-  getDocs,
-  doc,
-  setDoc,
-  deleteDoc,
-  serverTimestamp,
-  Timestamp,
-  query,
-  orderBy,
-  getDoc,
-  where,
-  updateDoc,
-} from 'firebase/firestore';
-import {
-  ref as storageRef, // Renamed to avoid conflict with `ref` from Firebase SDK
-  uploadBytesResumable,
-  getDownloadURL,
-  deleteObject,
-} from 'firebase/storage';
-import { db, storage } from '@/lib/firebase'; // Ensure these are correctly initialized Firebase client instances
-import type { Cafe, HalalStatus } from '@/types'; // Assuming HalalStatus is an enum or string literal type
+// --- Constants ---
 
-const CAFES_COLLECTION = 'cafes';
-const PENDING_CAFES_COLLECTION = 'pendingCafes';
-const REJECTED_CAFES_COLLECTION = 'rejectedCafes';
+export const CAFES_TABLE = 'cafes';
+export const PENDING_CAFES_TABLE = 'pending_cafes';
+const CAFE_LOGOS_BUCKET = 'cafe-logos';
 
-// Firestore collection references
-export const cafesCollectionRef = collection(db, CAFES_COLLECTION);
-export const pendingCafesCollectionRef = collection(db, PENDING_CAFES_COLLECTION);
-export const rejectedCafesCollectionRef = collection(db, REJECTED_CAFES_COLLECTION);
+// --- Helper Functions (Non-Public) ---
 
 /**
- * Helper to convert Firestore Timestamp to Date object if needed.
- * @param timestamp The Firestore Timestamp or undefined.
- * @returns A Date object or undefined.
+ * Uploads a logo file to Supabase Storage.
+ * This is a non-public helper function.
+ * @param file The logo file to upload.
+ * @param cafeId The ID of the cafe, used for naming the file to ensure uniqueness.
+ * @returns The public URL of the uploaded logo, or null if upload fails.
  */
-const toDate = (timestamp: Timestamp | undefined): Date | undefined => {
-  return timestamp instanceof Timestamp ? timestamp.toDate() : undefined;
-};
-
-/**
- * Helper function to get the storage path from a Firebase Storage URL.
- * This is crucial for correctly deleting objects from storage.
- * @param url The Firebase Storage download URL.
- * @returns The path within the storage bucket (e.g., 'cafe_logos/cafeId_filename.jpg').
- */
-function getStoragePathFromUrl(url: string): string | null {
-  try {
-    const parsedUrl = new URL(url);
-    // The path usually starts after '/o/' and is URL-encoded.
-    // We need to decode it to get the actual path within the bucket.
-    const path = parsedUrl.pathname.split('/o/')[1];
-    if (path) {
-      // Remove any query parameters (like ?alt=media...)
-      const decodedPath = decodeURIComponent(path.split('?')[0]);
-      return decodedPath;
-    }
-  } catch (error) {
-    console.error("Failed to parse storage URL:", error);
-  }
-  return null;
-}
-
-/**
- * Helper function to delete a logo from Firebase Storage.
- * @param logoLink The URL link to the logo in Firebase Storage.
- */
-async function deleteCafeLogo(logoLink: string): Promise<void> {
-  if (!logoLink || typeof logoLink !== 'string' || logoLink.trim() === '') {
-    console.warn("deleteCafeLogo: Invalid or empty logoLink provided. Skipping deletion.");
-    return;
+async function _uploadCafeLogo(
+  file: File,
+  cafeId: string,
+): Promise<string | null> {
+  if (!file || !cafeId) {
+    console.error('_uploadCafeLogo: File or cafeId not provided.');
+    return null;
   }
 
-  // Ensure storage instance exists and is properly configured
-  if (!storage || !storage.app.options.storageBucket) {
-    console.error('deleteCafeLogo: Firebase Storage is not initialized or storageBucket is missing in config. Cannot delete logo.');
-    return;
-  }
+  const fileExtension = file.name.split('.').pop();
+  const fileName = `${cafeId}_${Date.now()}.${fileExtension}`;
+  const filePath = `public/${fileName}`;
+
+  console.log(`_uploadCafeLogo: Attempting to upload file: ${fileName} to bucket ${CAFE_LOGOS_BUCKET}. File size: ${file.size} bytes, File type: ${file.type}. Path: ${filePath}`);
 
   try {
-    const path = getStoragePathFromUrl(logoLink);
-    if (!path) {
-      console.warn(`deleteCafeLogo: Could not determine storage path from URL: ${logoLink}. Skipping deletion.`);
-      return;
-    }
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from(CAFE_LOGOS_BUCKET)
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true,
+      });
 
-    const logoStorageRefInstance = storageRef(storage, path);
-    await deleteObject(logoStorageRefInstance);
-    console.log(`deleteCafeLogo: Logo deleted from storage: ${logoLink}`);
-  } catch (storageError: any) {
-    // Check for "object-not-found" specifically to avoid alarming errors for already deleted files
-    if (storageError.code === 'storage/object-not-found') {
-      console.warn('deleteCafeLogo: Logo file not found in storage, no action needed.');
-    } else {
-      console.error(`deleteCafeLogo: Error deleting logo from storage:`, storageError);
-    }
-  }
-}
-
-/**
- * Fetches all approved and operational cafes from the main 'cafes' collection.
- * This function is used by the admin panel for approved cafes and is aliased for public use.
- * @returns A promise that resolves to an array of Cafe objects.
- */
-export async function getApprovedCafes(): Promise<Cafe[]> {
-  console.log('getApprovedCafes: Attempting to fetch all approved cafes from Firestore...');
-  try {
-    const q = query(
-      cafesCollectionRef,
-      where('businessStatus', '==', 'OPERATIONAL'), // Only fetch operational cafes
-      orderBy('name') // Order alphabetically by name
-    );
-    const querySnapshot = await getDocs(q);
-    const cafes = querySnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        submittedAt: toDate(data.submittedAt),
-        approvedAt: toDate(data.approvedAt),
-        // Ensure other date fields are also converted if used client-side
-        rejectedAt: toDate(data.rejectedAt),
-        createdAt: toDate(data.createdAt),
-        updatedAt: toDate(data.updatedAt),
-      } as Cafe;
-    });
-    console.log(
-      "getApprovedCafes: Total cafes fetched from 'cafes' collection:",
-      cafes.length
-    );
-    return cafes;
-  } catch (error) {
-    console.error('getApprovedCafes: Error fetching approved cafes: ', error);
-    return []; // Return empty array on error
-  }
-}
-
-/**
- * Fetches a single cafe by its ID from the 'cafes' collection.
- * @param cafeId The ID of the cafe to fetch.
- * @returns A promise that resolves to a Cafe object if found, otherwise null.
- */
-export async function getCafeById(cafeId: string): Promise<Cafe | null> {
-  console.log(`getCafeById: Attempting to fetch cafe with ID '${cafeId}' from 'cafes' collection...`);
-  try {
-    const docRef = doc(cafesCollectionRef, cafeId);
-    const docSnap = await getDoc(docRef);
-
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      console.log(`getCafeById: Found cafe '${cafeId}'.`);
-      return {
-        id: docSnap.id,
-        ...data,
-        submittedAt: toDate(data.submittedAt),
-        approvedAt: toDate(data.approvedAt),
-        rejectedAt: toDate(data.rejectedAt),
-        createdAt: toDate(data.createdAt),
-        updatedAt: toDate(data.updatedAt),
-      } as Cafe;
-    } else {
-      console.warn(`getCafeById: No cafe document found with ID: '${cafeId}'.`);
+    if (uploadError) {
+      console.error('_uploadCafeLogo: Error uploading file:', uploadError);
       return null;
     }
-  } catch (error) {
-    console.error(`getCafeById: Error fetching cafe '${cafeId}': `, error);
+
+    if (uploadData) {
+      const { data: urlData } = supabase.storage
+        .from(CAFE_LOGOS_BUCKET)
+        .getPublicUrl(uploadData.path);
+
+      console.log('_uploadCafeLogo: File uploaded successfully. Public URL:', urlData.publicUrl);
+      return urlData.publicUrl;
+    }
+    return null;
+  } catch (error: any) {
+    console.error('_uploadCafeLogo: Exception during upload:', error.message || error);
     return null;
   }
 }
 
 /**
- * **ALIAS FOR `getApprovedCafes`**
- * This export is provided for compatibility with components (like public-facing pages)
- * that expect a `getCafes` function.
- * @returns A promise that resolves to an array of Cafe objects.
+ * Deletes a logo from Supabase Storage using its full public URL.
+ * This is a non-public helper function.
+ * @param logoUrl The full public URL of the logo to delete.
+ * @returns True if deletion was successful or not needed, false on error.
  */
-export const getCafes = getApprovedCafes;
-
-/**
- * Fetches all pending cafe submissions from the 'pendingCafes' collection.
- * @returns A promise that resolves to an array of Cafe objects.
- */
-export async function getPendingCafes(): Promise<Cafe[]> {
-  console.log('getPendingCafes: Attempting to fetch pending cafes from Firestore...');
-  try {
-    const q = query(pendingCafesCollectionRef, orderBy('submittedAt', 'desc'));
-    const querySnapshot = await getDocs(q);
-    const cafes = querySnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        submittedAt: toDate(data.submittedAt),
-        // Add other date fields if they might be present in pending documents
-        approvedAt: toDate(data.approvedAt),
-        rejectedAt: toDate(data.rejectedAt),
-        createdAt: toDate(data.createdAt),
-        updatedAt: toDate(data.updatedAt),
-      } as Cafe;
-    });
-    console.log('getPendingCafes: Total pending cafes fetched:', cafes.length);
-    return cafes;
-  } catch (error) {
-    console.error('getPendingCafes: Error fetching pending cafes: ', error);
-    return [];
+async function _deleteCafeLogoByUrl(logoUrl: string): Promise<boolean> {
+  if (!logoUrl) {
+    console.warn('_deleteCafeLogoByUrl: No logo URL provided. Skipping deletion.');
+    return true; // No action needed, so consider it successful in this context
   }
-}
-
-/**
- * Fetches all rejected cafe submissions from the 'rejectedCafes' collection.
- * @returns A promise that resolves to an array of Cafe objects.
- */
-export async function getRejectedCafes(): Promise<Cafe[]> {
-  console.log('getRejectedCafes: Attempting to fetch rejected cafes from Firestore...');
-  try {
-    const q = query(rejectedCafesCollectionRef, orderBy('rejectedAt', 'desc'));
-    const querySnapshot = await getDocs(q);
-    const cafes = querySnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        submittedAt: toDate(data.submittedAt),
-        rejectedAt: toDate(data.rejectedAt),
-        // Add other date fields if they might be present in rejected documents
-        approvedAt: toDate(data.approvedAt),
-        createdAt: toDate(data.createdAt),
-        updatedAt: toDate(data.updatedAt),
-      } as Cafe;
-    });
-    console.log('getRejectedCafes: Total rejected cafes fetched:', cafes.length);
-    return cafes;
-  } catch (error) {
-    console.error('getRejectedCafes: Error fetching rejected cafes: ', error);
-    return [];
-  }
-}
-
-/**
- * Generates a sanitized and unique ID for a cafe.
- * @param name The name of the cafe.
- * @returns A unique, URL-friendly ID string.
- */
-export function generateCafeId(name: string): string {
-  const sanitizedName = name
-    .toLowerCase()
-    .replace(/\s+/g, '-') // Replace spaces with hyphens
-    .replace(/[^\w-]+/g, '') // Remove non-alphanumeric characters except hyphens
-    .replace(/--+/g, '-'); // Replace multiple hyphens with a single one
-
-  const randomSuffix = Math.random().toString(36).substring(2, 7);
-  let cafeId = `${sanitizedName}-${randomSuffix}`;
-
-  if (cafeId.length > 100) {
-    cafeId = cafeId.substring(0, 100); // Truncate if too long for Firestore doc ID limits
-  }
-  return cafeId;
-}
-
-/**
- * Adds a new cafe submission to the 'pendingCafes' collection.
- * Includes logic for uploading a logo to Firebase Storage.
- * @param cafeId The generated unique ID for the cafe.
- * @param cafeData The cafe data to be stored.
- * @param logoFile Optional File object for the cafe's logo.
- * @returns A promise that resolves to the cafeId if successful, otherwise null.
- */
-export async function addCafeToPending(
-  cafeId: string,
-  cafeData: Omit<
-    Cafe,
-    | 'id'
-    | 'approvedAt'
-    | 'submittedAt'
-    | 'logoLink'
-    | 'businessStatus'
-    | 'rating'
-    | 'userRatingTotal'
-    | 'rejectedAt'
-    | 'createdAt' // Exclude createdAt and updatedAt from initial save
-    | 'updatedAt'
-  >,
-  logoFile?: File | null
-): Promise<string | null> {
-  let logoUrl: string | undefined = undefined;
 
   try {
-    // Check if storage is initialized and configured before attempting upload
-    if (!storage || !storage.app.options.storageBucket) {
-      console.error(
-        'addCafeToPending: Firebase Storage is not initialized or storageBucket is missing in config. Logo will not be uploaded.'
-      );
-      // Proceed without logo upload, or throw if logo is mandatory
-      // For now, it proceeds, allowing submission without logo if storage is misconfigured
+    // TODO: REVIEW - This path extraction is fragile. It assumes CAFE_LOGOS_BUCKET name doesn't appear earlier in the URL
+    // and that the path doesn't contain the bucket name itself. A more robust method would be to store
+    // the raw storage path alongside the public URL, or parse the URL more carefully.
+    const urlObject = new URL(logoUrl);
+    const pathSegments = urlObject.pathname.split('/');
+    const bucketNameIndex = pathSegments.indexOf(CAFE_LOGOS_BUCKET);
+
+    if (bucketNameIndex === -1 || bucketNameIndex === pathSegments.length - 1) {
+        console.error('_deleteCafeLogoByUrl: Could not reliably extract path from URL:', logoUrl);
+        return false;
+    }
+    const storagePath = pathSegments.slice(bucketNameIndex + 1).join('/');
+
+
+    if (!storagePath) {
+        console.error('_deleteCafeLogoByUrl: Extracted path is empty from URL:', logoUrl);
+        return false;
     }
 
-    if (logoFile instanceof File && storage) { // Ensure logoFile is a File and storage is available
-      const fileName = `${cafeId}_${Date.now()}_${logoFile.name}`;
-      const filePath = `cafe_logos/${fileName}`;
-      const logoStorageRefInstance = storageRef(storage, filePath);
-      const uploadTask = uploadBytesResumable(logoStorageRefInstance, logoFile);
-      await uploadTask;
-      logoUrl = await getDownloadURL(uploadTask.snapshot.ref);
-      console.log('addCafeToPending: Logo uploaded successfully. URL:', logoUrl);
-    }
+    console.log(`_deleteCafeLogoByUrl: Attempting to delete logo at path: ${storagePath} from bucket ${CAFE_LOGOS_BUCKET}`);
+    const { error: deleteError } = await supabase.storage // Use imported supabase client
+        .from(CAFE_LOGOS_BUCKET)
+        .remove([storagePath]);
 
-    const dataToSave: Partial<Cafe> = {
-      ...cafeData,
-      submittedAt: serverTimestamp() as Timestamp,
-      businessStatus: 'PENDING_REVIEW',
-      rating: 0, // Default rating for new submissions
-      userRatingTotal: 0, // Default userRatingTotal for new submissions
-      createdAt: serverTimestamp() as Timestamp, // Set creation timestamp
-      updatedAt: serverTimestamp() as Timestamp, // Set update timestamp
-    };
-
-    if (logoUrl) {
-      dataToSave.logoLink = logoUrl;
-    }
-
-    await setDoc(doc(pendingCafesCollectionRef, cafeId), dataToSave);
-    console.log('addCafeToPending: Pending cafe document written with ID: ', cafeId);
-    return cafeId;
-  } catch (error) {
-    console.error(
-      'addCafeToPending: Error adding pending cafe document and/or uploading logo: ',
-      error
-    );
-    // Attempt to delete orphaned logo only if a URL was generated and the error was not storage-related
-    // This is client-side code, so storage error codes might be different than admin SDK.
-    // Checking for typical storage error patterns.
-    if (logoUrl && error && !(error instanceof Error && (error as any).code?.startsWith('storage/'))) {
-      console.warn(
-        'addCafeToPending: Firestore write failed after logo upload. Attempting to delete orphaned logo:',
-        logoUrl
-      );
-      await deleteCafeLogo(logoUrl); // Use the helper to clean up
-    }
-    return null;
-  }
-}
-
-/**
- * Approves a pending cafe by moving its data from 'pendingCafes' to 'cafes' collection.
- * Sets approvedAt timestamp and businessStatus.
- * @param pendingCafe The Cafe object from the pending submissions.
- * @returns A promise that resolves to true if successful, otherwise false.
- */
-export async function approveCafe(pendingCafe: Cafe): Promise<boolean> {
-  if (!pendingCafe.id) {
-    console.error('approveCafe: Pending cafe has no ID, cannot approve.');
-    return false;
-  }
-  console.log(`approveCafe: Attempting to approve cafe ${pendingCafe.id}`);
-  try {
-    const pendingDocRef = doc(db, PENDING_CAFES_COLLECTION, pendingCafe.id);
-    const pendingDocSnap = await getDoc(pendingDocRef);
-
-    if (!pendingDocSnap.exists()) {
-      console.error(
-        `approveCafe: Pending cafe with ID ${pendingCafe.id} not found for approval.`
-      );
+    if (deleteError) {
+      // It's common for a file to be already deleted, so 'StorageApiError: Not Found' is not a critical failure for deletion.
+      if (deleteError.message === 'Not Found' || (deleteError as any).statusCode === '404') {
+         console.warn(`_deleteCafeLogoByUrl: Logo not found (may have been already deleted): ${storagePath}`);
+         return true;
+      }
+      console.error('_deleteCafeLogoByUrl: Error deleting logo:', deleteError);
       return false;
     }
+    console.log('_deleteCafeLogoByUrl: Logo deleted successfully from storage.');
+    return true;
+  } catch (error) {
+    console.error('_deleteCafeLogoByUrl: Exception during deletion:', error);
+    return false;
+  }
+}
 
-    const cafeData = pendingDocSnap.data() as Cafe;
+/**
+ * Handles PostgREST errors, logging them and optionally re-throwing or returning null.
+ * @param error The PostgrestError object.
+ * @param context A string describing the context of the error.
+ * @param throwErrorIfCritical If true, re-throws the error. Otherwise, returns null.
+ * @returns null if not re-throwing, otherwise never returns.
+ */
+function _handlePostgrestError(error: PostgrestError, context: string, throwErrorIfCritical = false): null {
+    console.error(`${context}: PostgREST Error - Code: ${error.code}, Message: ${error.message}, Details: ${error.details}, Hint: ${error.hint}`);
+    if (throwErrorIfCritical) {
+        throw error;
+    }
+    return null;
+}
 
-    // Destructure to remove ID and timestamps that shouldn't be copied directly,
-    // and extract other properties. Use spread for cleanliness.
-    const { id, submittedAt, rejectedAt, ...baseCafeData } = cafeData;
+/**
+ * Generates a unique, URL-friendly ID for a cafe based on its name.
+ * @param cafeName The name of the cafe.
+ * @returns A slugified string representing the cafe ID.
+ */
+export function generateCafeId(cafeName: string): string {
+  // Simple slugification: lowercase, replace non-alphanumeric with hyphens, remove leading/trailing hyphens.
+  return cafeName.toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
 
-    const approvedData: Omit<Cafe, 'id' | 'submittedAt' | 'rejectedAt'> = {
-      ...baseCafeData,
-      approvedAt: serverTimestamp() as Timestamp,
-      businessStatus: 'OPERATIONAL',
-      // Ensure rating/total are numbers, default to 0 if undefined/null
-      rating: baseCafeData.rating ?? 0,
-      userRatingTotal: baseCafeData.userRatingTotal ?? 0,
-      halalStatus: (baseCafeData.halalStatus || 'Not Specified') as HalalStatus,
-      updatedAt: serverTimestamp() as Timestamp, // Update timestamp on approval
+// --- Cafe Data Service Functions (Public) ---
+
+/**
+ * Fetches all approved and operational cafes, ordered by name.
+ * @returns A promise that resolves to an array of Cafe objects. Returns empty array on failure.
+ */
+export async function getApprovedCafes(): Promise<Cafe[]> {
+  const operationName = 'getApprovedCafes';
+  console.log(`${operationName}: Fetching approved, operational cafes...`);
+  try {
+    const { data: cafesData, error } = await supabase
+      .from(CAFES_TABLE)
+      .select('*')
+      .eq('businessstatus', 'OPERATIONAL')
+      .order('name', { ascending: true });
+
+    if (error) {
+      _handlePostgrestError(error, `${operationName}: Error fetching cafes`);
+      return []; // Return empty array on error as per original behavior
+    }
+    console.log(`${operationName}: Fetched ${cafesData?.length || 0} cafes.`);
+    return cafesData || [];
+  } catch (error) {
+    console.error(`${operationName}: Exception:`, error);
+    return [];
+  }
+}
+
+/**
+ * Fetches all pending cafe submissions, ordered by submission date descending.
+ * @returns A promise that resolves to an array of Cafe objects. Returns empty array on failure.
+ */
+export async function getPendingCafes(
+  page: number = 1,
+  limit: number = 10,
+): Promise<{ cafes: Cafe[]; totalCount: number }> {
+  const operationName = 'getPendingCafes';
+  console.log(`${operationName}: Fetching pending cafes for page ${page} with limit ${limit}...`);
+  try {
+    const offset = (page - 1) * limit;
+    const { data: cafesData, error, count } = await supabase
+      .from(PENDING_CAFES_TABLE)
+      .select('*', { count: 'exact' })
+      .order('submittedat', { ascending: false })
+      .range(offset, offset + limit - 1); // Supabase range is inclusive
+
+    if (error) {
+      _handlePostgrestError(error, `${operationName}: Error fetching pending cafes`);
+      return { cafes: [], totalCount: 0 };
+    }
+    console.log(`${operationName}: Fetched ${cafesData?.length || 0} pending cafes for page ${page}. Total count: ${count}.`);
+    return { cafes: cafesData || [], totalCount: count || 0 };
+  } catch (error) {
+    console.error(`${operationName}: Exception:`, error);
+    return { cafes: [], totalCount: 0 };
+  }
+}
+
+/**
+ * Fetches all rejected cafe submissions, ordered by rejection date descending.
+ * @returns A promise that resolves to an array of Cafe objects. Returns empty array on failure.
+ */
+export async function getRejectedCafes(): Promise<Cafe[]> {
+  const operationName = 'getRejectedCafes';
+  console.log(`${operationName}: Fetching rejected cafes...`);
+  try {
+    const { data: cafesData, error } = await supabase
+      .from(CAFES_TABLE)
+      .select('*')
+      .eq('businessstatus', 'REJECTED')
+      .order('rejectedAt', { ascending: false });
+
+    if (error) {
+      _handlePostgrestError(error, `${operationName}: Error fetching rejected cafes`);
+      return [];
+    }
+    console.log(`${operationName}: Fetched ${cafesData?.length || 0} rejected cafes.`);
+    return cafesData || [];
+  } catch (error) {
+    console.error(`${operationName}: Exception:`, error);
+    return [];
+  }
+}
+
+/**
+ * Adds a new cafe submission to the 'cafes' table.
+ * Optionally uploads a logo. If logo upload fails after data insertion, the cafe remains but without a logo.
+ * @param cafeSubmissionData Data for the new cafe (excluding id, managed timestamps, and logoLink).
+ * @param logoFile Optional logo file to upload.
+ * @returns The ID of the newly created pending cafe if successful, otherwise null.
+ */
+export async function addCafeToPending(
+  cafeSubmissionData: Omit<Cafe, 'id' | 'createdAt' | 'updatedAt' | 'approvedat' | 'rejectedAt' | 'logoLink' | 'socialmedialinks' | 'userRatingTotal'>,
+  logoFile?: File | null,
+): Promise<{ id: string } | null> {
+  const operationName = 'addCafeToPending';
+  console.log(`${operationName}: Attempting to add new pending cafe...`);
+  try {
+    const dataToInsert: Partial<Cafe> = {
+      ...cafeSubmissionData,
+      submittedat: new Date().toISOString(),
+      businessstatus: 'PENDING_REVIEW',
     };
 
-    await setDoc(doc(cafesCollectionRef, pendingCafe.id), approvedData); // Set the new approved document
-    await deleteDoc(pendingDocRef); // Delete the pending document
+    const { data: insertedCafeData, error: insertError } = await supabase
+      .from(PENDING_CAFES_TABLE)
+      .insert([dataToInsert])
+      .select('id')
+      .single();
 
-    console.log(`approveCafe: Cafe ${pendingCafe.id} approved and moved to cafes collection.`);
-    return true;
-  } catch (error) {
-    console.error('approveCafe: Error approving cafe: ', error);
-    return false;
-  }
-}
-
-/**
- * Rejects a pending cafe submission, moving it to 'rejectedCafes' and deleting it from 'pendingCafes'.
- * Also attempts to delete its associated logo from storage.
- * @param pendingCafeId The ID of the pending cafe to reject.
- * @param logoLink Optional URL link to the logo in Firebase Storage.
- * @returns A promise that resolves to true if successful, otherwise false.
- */
-export async function rejectCafe(
-  pendingCafeId: string,
-  logoLink?: string
-): Promise<boolean> {
-  console.log(`rejectCafe: Attempting to reject cafe ${pendingCafeId}`);
-  try {
-    const pendingDocRef = doc(db, PENDING_CAFES_COLLECTION, pendingCafeId);
-    const pendingDocSnap = await getDoc(pendingDocRef);
-
-    let cafeData: Cafe | undefined;
-
-    if (pendingDocSnap.exists()) {
-      cafeData = pendingDocSnap.data() as Cafe;
-      const rejectedData: Omit<Cafe, 'id'> = { // Removed 'id' from Omit here as it's not being explicitly removed from `cafeData`
-        ...cafeData,
-        businessStatus: 'REJECTED',
-        rejectedAt: serverTimestamp() as Timestamp,
-        updatedAt: serverTimestamp() as Timestamp, // Update timestamp on rejection
-      };
-      await setDoc(doc(rejectedCafesCollectionRef, pendingCafeId), rejectedData);
-      console.log(`rejectCafe: Cafe ${pendingCafeId} moved to rejectedCafes collection.`);
-    } else {
-      console.warn(`rejectCafe: Pending cafe with ID ${pendingCafeId} not found, proceeding with deletion.`);
+    if (insertError || !insertedCafeData || !insertedCafeData.id) {
+      return _handlePostgrestError(insertError || new Error('Failed to insert cafe or retrieve ID.') as PostgrestError, `${operationName}: Error inserting cafe data`, true);
     }
 
-    await deleteDoc(pendingDocRef);
-    console.log(`rejectCafe: Pending cafe ${pendingCafeId} deleted from pendingCafes.`);
+    const newCafeId = insertedCafeData.id;
+    let logoUrl: string | null = null;
 
-    // Prefer logoLink from parameter, fallback to fetched data if available
-    const finalLogoLink = logoLink || cafeData?.logoLink;
-    if (finalLogoLink) {
-      await deleteCafeLogo(finalLogoLink);
-    }
+    if (logoFile) {
+      logoUrl = await _uploadCafeLogo(logoFile, newCafeId);
+      if (logoUrl) {
+        const { error: updateLogoError } = await supabase
+          .from(PENDING_CAFES_TABLE)
+          .update({ logolink: logoUrl })
+          .eq('id', newCafeId);
 
-    return true;
-  } catch (error) {
-    console.error('rejectCafe: Error rejecting cafe: ', error);
-    return false;
-  }
-}
-
-/**
- * Updates an existing cafe's details in the main 'cafes' collection.
- * Handles optional logo file upload/replacement/removal.
- * @param cafeId The ID of the cafe to update.
- * @param updatedData The partial cafe data to update.
- * @param newLogoFile The new logo file (File object) if uploaded, null if existing logo should be removed, undefined if no change.
- * @param originalLogoLink The original URL of the existing logo, needed for deletion if a new one is uploaded or logo is removed.
- * @returns A promise that resolves to true if successful, otherwise false.
- */
-export async function updateCafe(
-  cafeId: string,
-  cafeData: Partial<Omit<Cafe,
-    'id' | 'submittedAt' | 'approvedAt' | 'rating' | 'userRatingTotal' | 'rejectedAt' | 'logoLink' | 'createdAt' | 'updatedAt'
-  >>, // Added createdAt and updatedAt to Omit
-  newLogoFile: File | null | undefined,
-  originalLogoLink: string | null | undefined
-): Promise<boolean> {
-  console.log(`updateCafe: Attempting to update cafe ${cafeId}`);
-  try {
-    const cafeDocRef = doc(db, CAFES_COLLECTION, cafeId);
-    let logoLinkToSave: string | undefined | null = originalLogoLink; // Default to existing link
-
-    if (newLogoFile instanceof File) {
-      // 1. Upload new logo
-      const fileName = `${cafeId}_${Date.now()}_${newLogoFile.name}`;
-      const filePath = `cafe_logos/${fileName}`;
-      const logoStorageRefInstance = storageRef(storage, filePath);
-      const uploadTask = uploadBytesResumable(logoStorageRefInstance, newLogoFile);
-      await uploadTask;
-      logoLinkToSave = await getDownloadURL(uploadTask.snapshot.ref);
-      console.log('updateCafe: New logo uploaded successfully. URL:', logoLinkToSave);
-
-      // 2. Delete old logo if it exists and is different from the new one
-      if (originalLogoLink && originalLogoLink !== logoLinkToSave) {
-        await deleteCafeLogo(originalLogoLink);
+        if (updateLogoError) {
+          // TODO: REVIEW - Atomicity: Logo uploaded but DB update failed.
+          // The orphaned logo should ideally be deleted.
+          console.error(`${operationName}: Error updating cafe with logoLink. Attempting to delete orphaned logo.`, updateLogoError);
+          await _deleteCafeLogoByUrl(logoUrl); // Attempt to clean up
+          return _handlePostgrestError(updateLogoError, `${operationName}: Error updating cafe with logoLink`, true);
+        }
+      } else {
+        console.warn(`${operationName}: Cafe data for ${newCafeId} inserted, but logo upload failed. Cafe will not have a logo.`);
+        // TODO: REVIEW - Should this be considered a partial success or a failure?
+        // Depending on requirements, might want to delete the inserted cafe record if logo is mandatory.
       }
-    } else if (newLogoFile === null && originalLogoLink) {
-      // User explicitly requested to remove the logo, and there was an original logo
-      await deleteCafeLogo(originalLogoLink);
-      logoLinkToSave = null; // Set logoLink to null in Firestore
     }
-    // If newLogoFile is undefined, logoLinkToSave remains originalLogoLink (no change to logo)
 
-    // Prepare data for Firestore update
-    const dataToUpdate: Record<string, any> = {
-      ...cafeData,
-      logoLink: logoLinkToSave, // Update logoLink field (will be null if removed)
-      updatedAt: serverTimestamp(), // Always update 'updatedAt' timestamp
+    console.log(`${operationName}: Pending cafe added successfully with ID:`, newCafeId);
+    return { id: newCafeId };
+  } catch (error) {
+    console.error(`${operationName}: Exception:`, error);
+    return null;
+  }
+}
+
+
+/**
+ * Moves a cafe record from a source table to a target table, updating its status and relevant timestamps.
+ * This is a non-public helper function.
+ * @param cafeId The ID of the cafe to move.
+ * @param sourceTable The name of the source table (e.g., CAFES_TABLE).
+ * @param targetTable The name of the target table (e.g., CAFES_TABLE, REJECTED_CAFES_TABLE).
+ * @param newStatus The new businessstatus for the cafe in the target table.
+ * @param dateFieldName The name of the timestamp field to set (e.g., 'approvedat', 'rejectedAt').
+ * @returns True if successful, false otherwise.
+ */
+async function _moveCafeAndUpdateStatus(
+    cafeId: string,
+    newStatus: "OPERATIONAL" | "REJECTED",
+    dateFieldName: 'approvedat' | 'rejectedAt'
+): Promise<boolean> {
+    const operationName = '_moveCafeAndUpdateStatus';
+    console.log(`${operationName}: Attempting to move cafe ${cafeId} to status ${newStatus}...`);
+
+    try {
+        // 1. Fetch the pending cafe
+        const { data: pendingCafe, error: fetchError } = await supabase
+            .from(PENDING_CAFES_TABLE)
+        .select('*')
+        .eq('id', cafeId)
+        .single();
+
+        if (fetchError) {
+            _handlePostgrestError(fetchError, `${operationName}: Error fetching pending cafe ${cafeId}`);
+            return false;
+        }
+        if (!pendingCafe) {
+            console.warn(`${operationName}: No pending cafe found with ID: ${cafeId}.`);
+        return false;
+    }
+
+        // 2. Prepare data for insertion into the main cafes table
+        // Omit fields that are specific to pending_cafes or handled separately
+        const { id, status, ...restOfCafe } = pendingCafe; // 'status' is only in pending_cafes
+
+        const cafeDataForMainTable = {
+            ...restOfCafe,
+            id: id, // Keep the same ID for consistency
+            businessstatus: newStatus, // Set the new business status
+            [dateFieldName]: new Date().toISOString(), // Set approvedAt or rejectedAt
+            // Ensure other fields not in CafeSubmissionForm are set to null if not present
+            googleplaceid: pendingCafe.googleplaceid || null,
+            pricelevel: pendingCafe.pricelevel || null,
+            logolink: pendingCafe.logolink || null,
+            // Any other fields specific to the 'cafes' table that need explicit nulling
     };
 
-    await updateDoc(cafeDocRef, dataToUpdate);
-    console.log(`updateCafe: Cafe ${cafeId} updated successfully.`);
-    return true;
+        // 3. Insert into the main cafes table
+    const { error: insertError } = await supabase
+            .from(CAFES_TABLE)
+            .insert([cafeDataForMainTable])
+            .single();
+
+    if (insertError) {
+            _handlePostgrestError(insertError, `${operationName}: Error inserting cafe ${cafeId} into main table`);
+        return false;
+    }
+
+        // 4. Delete from the pending_cafes table
+    const { error: deleteError } = await supabase
+            .from(PENDING_CAFES_TABLE)
+        .delete()
+        .eq('id', cafeId);
+
+    if (deleteError) {
+            _handlePostgrestError(deleteError, `${operationName}: Error deleting pending cafe ${cafeId}`);
+            return false;
+        }
+
+        console.log(`${operationName}: Cafe ${cafeId} successfully moved to ${newStatus}.`);
+        return true;
+    } catch (error) {
+        console.error(`${operationName}: Exception:`, error);
+        return false;
+    }
+}
+
+
+/**
+ * Approves a pending cafe. Moves it from 'cafes' to 'cafes' and updates its status.
+ * @param pendingCafeId The ID of the cafe in the 'cafes' table.
+ * @returns True if successful, false otherwise.
+ */
+export async function approveCafe(pendingCafeId: string): Promise<boolean> {
+  return _moveCafeAndUpdateStatus(pendingCafeId, 'OPERATIONAL', 'approvedat');
+}
+
+/**
+ * Rejects a pending cafe. Moves it from 'cafes' to 'rejected_cafes' and updates its status.
+ * Note: Logo is typically not deleted on rejection but kept with the rejected record.
+ * @param pendingCafeId The ID of the cafe in the 'cafes' table.
+ * @returns True if successful, false otherwise.
+ */
+export async function rejectCafe(pendingCafeId: string): Promise<boolean> {
+  return _moveCafeAndUpdateStatus(pendingCafeId, 'REJECTED', 'rejectedAt');
+}
+
+/**
+ * Fetches the total count of all cafes in the main 'cafes' table, regardless of status.
+ * @returns A promise that resolves to the total count, or 0 on failure.
+ */
+export async function getTotalCafesCount(): Promise<number> {
+  const operationName = 'getTotalCafesCount';
+  console.log(`${operationName}: Fetching total count of all cafes...`);
+  try {
+    const { count, error } = await supabase
+      .from(CAFES_TABLE)
+      .select('id', { count: 'exact', head: true }); // Use head: true for efficiency
+
+    if (error) {
+      _handlePostgrestError(error, `${operationName}: Error fetching total cafe count`);
+      return 0;
+  }
+    console.log(`${operationName}: Total cafes count: ${count || 0}.`);
+    return count || 0;
   } catch (error) {
-    console.error(`updateCafe: Error updating cafe ${cafeId}: `, error);
-    return false;
+    console.error(`${operationName}: Exception:`, error);
+    return 0;
   }
 }
 
 /**
- * Permanently deletes a cafe document from a specified collection (approved or rejected).
- * Also deletes its associated logo from storage.
- * @param cafeId The ID of the cafe to delete.
- * @param collectionRef The Firestore collection reference (e.g., cafesCollectionRef or rejectedCafesCollectionRef).
- * @param logoLink Optional URL link to the logo in Firebase Storage.
- * @returns A promise that resolves to true if successful, otherwise false.
+ * Fetches the total count of approved cafes (status 'OPERATIONAL').
+ * @returns A promise that resolves to the total count, or 0 on failure.
  */
-export async function deleteCafe(
-  cafeId: string,
-  collectionRef: typeof cafesCollectionRef | typeof rejectedCafesCollectionRef,
-  logoLink?: string
-): Promise<boolean> {
-  console.log(`deleteCafe: Attempting to delete cafe ${cafeId} from ${collectionRef.id}.`);
+export async function getTotalApprovedCafesCount(): Promise<number> {
+  const operationName = 'getTotalApprovedCafesCount';
+  console.log(`${operationName}: Fetching total count of approved cafes...`);
   try {
-    if (logoLink) {
-      await deleteCafeLogo(logoLink);
-    }
+    const { count, error } = await supabase
+      .from(CAFES_TABLE)
+      .select('id', { count: 'exact', head: true })
+      .eq('businessstatus', 'OPERATIONAL');
 
-    await deleteDoc(doc(collectionRef, cafeId));
-    console.log(`deleteCafe: Cafe ${cafeId} deleted from ${collectionRef.id}.`);
-    return true;
+    if (error) {
+      _handlePostgrestError(error, `${operationName}: Error fetching total approved cafe count`);
+      return 0;
+    }
+    console.log(`${operationName}: Total approved cafes count: ${count || 0}.`);
+    return count || 0;
   } catch (error) {
-    console.error(`deleteCafe: Error deleting cafe ${cafeId} from ${collectionRef.id}: `, error);
-    return false;
+    console.error(`${operationName}: Exception:`, error);
+    return 0;
+  }
+}
+
+/**
+ * Fetches the total count of rejected cafes.
+ * @returns A promise that resolves to the total count, or 0 on failure.
+ */
+export async function getTotalRejectedCafesCount(): Promise<number> {
+  const operationName = 'getTotalRejectedCafesCount';
+  console.log(`${operationName}: Fetching total count of rejected cafes...`);
+  try {
+    const { count, error } = await supabase
+      .from(CAFES_TABLE)
+      .select('id', { count: 'exact', head: true })
+      .eq('businessstatus', 'REJECTED');
+
+    if (error) {
+      _handlePostgrestError(error, `${operationName}: Error fetching total rejected cafe count`);
+      return 0;
+    }
+    console.log(`${operationName}: Total rejected cafes count: ${count || 0}.`);
+    return count || 0;
+  } catch (error) {
+    console.error(`${operationName}: Exception:`, error);
+    return 0;
   }
 }

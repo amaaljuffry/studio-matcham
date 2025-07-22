@@ -1,32 +1,16 @@
-// src/app/page.tsx
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
-import type { Cafe } from "@/types";
+import { Header } from "@/components/Header";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { supabase } from "@/lib/supabase";
 import {
   malaysianStates,
   halalStatusesList,
   additionalTagsList,
 } from "@/data/cafes";
-import { getCafes } from "@/services/cafeService"; // This service will call your API
-import { CafeDetailsCard } from "@/components/cafe-details-card";
-import { CafeSubmissionForm } from "@/components/CafeSubmissionForm";
+import type { Cafe } from "@/types";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -35,295 +19,233 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Card,
+  CardHeader,
+  CardContent,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import Footer from "@/components/Footer";
+import Image from "next/image";
+import {
+  XCircle,
+  Info,
+  MapIcon,
+  Send,
+  Menu,
+  PlusCircle,
+  Terminal,
+} from "lucide-react";
+import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import Link from "next/link";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { CafeSubmissionForm } from "@/components/CafeSubmissionForm";
+import { CafeMap } from "@/components/cafe-map";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { MapDialog } from "@/components/MapDialog";
+import { CafeDetailsCard } from "@/components/cafe-details-card";
 import { Label } from "@/components/ui/label";
 import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
+} from "@/components/ui/dropdown-menu";
+import {
+  Loader2,
   Leaf,
-  XCircle,
-  MapIcon,
-  Terminal,
-  PlusCircle,
-  Filter as FilterIcon,
+  FilterIcon,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Info,
-  ChevronDown,
-  Menu,
-  Loader2,
-  Coffee, // Keep if you uncomment the Explore button
-  Send,
 } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link"; // Ensure this is imported for Next.js Link component
-import { CafeMap } from "@/components/cafe-map";
-import { useToast } from "@/hooks/use-toast";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationPrevious,
+  PaginationLink,
+  PaginationEllipsis,
+  PaginationNext,
+} from "@/components/ui/pagination";
+import { Banner5 } from "@/components/banner";
 
-export default function HomePage() {
-  // --- State Management ---
-  const [allCafes, setAllCafes] = useState<Cafe[]>([]);
+const PAGE_SIZE = 10;
+
+export default function Home() {
+  const [cafes, setCafes] = useState<Cafe[]>([]);
+  const [allCafesForMap, setAllCafesForMap] = useState<Cafe[]>([]);
+  const [loading, setLoading] = useState(false);
   const [isLoadingCafes, setIsLoadingCafes] = useState(true);
-  const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
-  const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string | undefined>(
-    undefined
+  const [error, setError] = useState<string | null>(null);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [filteredCafes, setFilteredCafes] = useState<Cafe[]>([]);
+  const [currentCafesToDisplay, setCurrentCafesToDisplay] = useState<Cafe[]>(
+    []
   );
+
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const [selectedStateFilter, setSelectedStateFilter] = useState("All");
+  const [selectedHalalFilter, setSelectedHalalFilter] = useState("All");
+  const [selectedTagsFilter, setSelectedTagsFilter] = useState<string[]>([]);
+
+  const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
   const [isSubmissionDialogOpen, setIsSubmissionDialogOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const { toast } = useToast();
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_MAPS_API_KEY;
+  const initialMapCenter = { lat: 3.139, lng: 101.6869 }; // Kuala Lumpur coordinates
+  const initialZoom = 7;
 
-  // Filter states
-  const [selectedStateFilter, setSelectedStateFilter] = useState<string>("All");
-  const [selectedHalalFilter, setSelectedHalalFilter] = useState<string>("All");
-  const [selectedTagsFilter, setSelectedTagsFilter] = useState<string[]>([]);
+  const handleCafeSelect = (cafe: Cafe | null) => {
+    setSelectedCafe(cafe);
+  };
 
-  // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
-  const cafesPerPage = 10; // Number of cafes to display per page
+  const statesOptions = ["All", ...malaysianStates];
+  const halalOptions = [{ id: "All", label: "All" }, ...halalStatusesList];
+  const tagOptions = additionalTagsList;
 
-  // --- Data Fetching Logic ---
-  const fetchCafesData = useCallback(async () => {
+  const fetchAndFilterCafes = useCallback(async () => {
     setIsLoadingCafes(true);
+    setError(null);
+
     try {
-      // CRITICAL: Ensure getCafes() fetches from a *public* API route.
-      // If it's currently calling an admin-only route, it will return 401 Unauthorized
-      // for regular users. You need a separate /api/cafes or /api/public/cafes route
-      // that does not require authentication.
-      const cafesFromDb = await getCafes();
+      const { data, error: fetchError } = await supabase
+        .from("cafes")
+        .select("*")
+        .order("name", { ascending: true });
 
-      // Helper to parse date strings or use Date objects robustly
-      // This is good to keep as Firebase Timestamps are converted to ISO strings by the API
-      // route, and you might get various formats during development or from older data.
-      const getParsedDate = (dateInput: Date | string | undefined | null): Date | null => {
-        if (!dateInput) return null;
-        if (dateInput instanceof Date) {
-          return isNaN(dateInput.getTime()) ? null : dateInput;
-        }
-        if (typeof dateInput === 'string') {
-          const parsed = new Date(dateInput);
-          return isNaN(parsed.getTime()) ? null : parsed;
-        }
-        return null;
-      };
+      if (fetchError) {
+        setError(fetchError.message);
+        setFilteredCafes([]);
+        setCurrentCafesToDisplay([]);
+        setTotalCount(0);
+        return;
+      }
 
-      // Sort cafes: approved (newest first) then by name
-      cafesFromDb.sort((a, b) => {
-        const approvedAtA = getParsedDate(a.approvedAt);
-        const approvedAtB = getParsedDate(b.approvedAt);
+      let currentCafes = data ?? [];
 
-        // Prioritize cafes with a valid approvedAt date
-        if (approvedAtA && !approvedAtB) return -1; // A has date, B does not: A comes first
-        if (!approvedAtA && approvedAtB) return 1;  // B has date, A does not: B comes first
-        if (!approvedAtA && !approvedAtB) {
-          // If neither has a date (or both invalid), sort by submittedAt or name
-          const submittedAtA = getParsedDate(a.submittedAt);
-          const submittedAtB = getParsedDate(b.submittedAt);
-          if (submittedAtA && submittedAtB) {
-            return submittedAtB.getTime() - submittedAtA.getTime(); // Newest submitted first
-          }
-          return a.name.localeCompare(b.name); // Fallback to sorting by name
-        }
+      if (searchTerm.trim() !== "") {
+        currentCafes = currentCafes.filter((cafe) =>
+          cafe.name.toLowerCase().includes(searchTerm.trim().toLowerCase())
+        );
+      }
 
-        // Both dates are valid approvedAt, sort descending (newest first)
-        return approvedAtB!.getTime() - approvedAtA!.getTime();
-      });
+      if (selectedStateFilter !== "All") {
+        currentCafes = currentCafes.filter(
+          (cafe) => cafe.state === selectedStateFilter
+        );
+      }
 
-      setAllCafes(cafesFromDb);
-    } catch (error) {
-      console.error("Failed to fetch cafes:", error);
-      toast({
-        title: "Error Fetching Cafes",
-        description:
-          "Could not load cafe data. Please try refreshing the page. Check browser console for more details.",
-        variant: "destructive",
-      });
+      if (selectedHalalFilter !== "All") {
+        currentCafes = currentCafes.filter(
+          (cafe) => cafe.halalstatus === selectedHalalFilter
+        );
+      }
+
+      if (selectedTagsFilter.length > 0) {
+        currentCafes = currentCafes.filter(
+          (cafe) =>
+            cafe.tags &&
+            cafe.tags.some((tag: string) => selectedTagsFilter.includes(tag))
+        );
+      }
+
+      setFilteredCafes(currentCafes);
+      setTotalCount(currentCafes.length);
+
+      const from = (currentPage - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE;
+      setCurrentCafesToDisplay(currentCafes.slice(from, to));
+    } catch (err: any) {
+      setError(err.message);
+      setFilteredCafes([]);
+      setCurrentCafesToDisplay([]);
+      setTotalCount(0);
     } finally {
       setIsLoadingCafes(false);
     }
-  }, [toast]);
+  }, [
+    searchTerm,
+    selectedStateFilter,
+    selectedHalalFilter,
+    selectedTagsFilter,
+    currentPage,
+  ]);
 
-  // Effect to trigger data fetching on component mount
-  useEffect(() => {
-    fetchCafesData();
-  }, [fetchCafesData]); // `fetchCafesData` is wrapped in useCallback, so this is stable
-
-  // --- API Key Loading ---
-  useEffect(() => {
-    const key = process.env.NEXT_PUBLIC_Maps_API_KEY;
-    if (key) {
-      setGoogleMapsApiKey(key);
-    } else {
-      toast({
-        title: "Map API Key Missing",
-        description: "Google Maps functionality may be limited. Please ensure NEXT_PUBLIC_Maps_API_KEY is set in your .env file.",
-        variant: "destructive", // Or a specific 'warning' variant if your toast system has one
-        duration: 8000, // Show for a bit longer
-      });
-      console.warn(
-        "Google Maps API Key (NEXT_PUBLIC_Maps_API_KEY) is missing or undefined."
-      );
-    }
-  }, [toast]);
-
-  // --- Memoized Filters and Pagination ---
-  const filteredCafes = useMemo(() => {
-    let cafes = [...allCafes];
-
-    if (selectedStateFilter !== "All") {
-      cafes = cafes.filter((cafe) => cafe.state === selectedStateFilter);
-    }
-
-    if (selectedHalalFilter !== "All") {
-      cafes = cafes.filter((cafe) => cafe.halalStatus === selectedHalalFilter);
-    }
-
-    if (selectedTagsFilter.length > 0) {
-      // Ensure all selected tags are present in a cafe's tags
-      cafes = cafes.filter((cafe) =>
-        selectedTagsFilter.every((tag) => cafe.tags?.includes(tag))
-      );
-    }
-    return cafes;
-  }, [allCafes, selectedStateFilter, selectedHalalFilter, selectedTagsFilter]);
-
-  // Reset page to 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedStateFilter, selectedHalalFilter, selectedTagsFilter]);
-
-  const totalPages = Math.ceil(filteredCafes.length / cafesPerPage);
-
-  const currentCafesToDisplay = useMemo(() => {
-    const indexOfLastCafe = currentPage * cafesPerPage;
-    const indexOfFirstCafe = indexOfLastCafe - cafesPerPage;
-    return filteredCafes.slice(indexOfFirstCafe, indexOfLastCafe);
-  }, [filteredCafes, currentPage, cafesPerPage]);
-
-
-  // --- Handlers ---
-  const handleCafeSelect = useCallback(
-    (cafe: Cafe | null) => {
-      setSelectedCafe(cafe);
-      // Optional: If a cafe is selected, try to navigate to its "page" (by setting current page)
-      if (cafe) {
-        const cafeIndex = filteredCafes.findIndex((c) => c.id === cafe.id);
-        if (cafeIndex !== -1) {
-          const pageNumberOfSelectedCafe =
-            Math.floor(cafeIndex / cafesPerPage) + 1;
-          if (currentPage !== pageNumberOfSelectedCafe) {
-            setCurrentPage(pageNumberOfSelectedCafe);
-          }
-        }
-      }
-    },
-    [filteredCafes, cafesPerPage, currentPage]
-  );
-
-  const handleNextPage = useCallback(() => {
-    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
-  }, [totalPages]);
-
-  const handlePrevPage = useCallback(() => {
-    setCurrentPage((prev) => Math.max(prev - 1, 1));
-  }, []);
-
-  const handleStateFilterChange = useCallback((value: string) => {
+  const handleStateFilterChange = (value: string) => {
     setSelectedStateFilter(value);
-  }, []);
+    setCurrentPage(1);
+  };
 
-  const handleHalalFilterChange = useCallback((value: string) => {
+  const handleHalalFilterChange = (value: string) => {
     setSelectedHalalFilter(value);
-  }, []);
+    setCurrentPage(1);
+  };
 
-  const handleTagFilterChange = useCallback((tagLabel: string) => {
-    setSelectedTagsFilter((prevTags) =>
-      prevTags.includes(tagLabel)
-        ? prevTags.filter((t) => t !== tagLabel)
-        : [...prevTags, tagLabel]
+  const handleTagFilterChange = (tagId: string) => {
+    setSelectedTagsFilter((prev) =>
+      prev.includes(tagId) ? prev.filter((t) => t !== tagId) : [...prev, tagId]
     );
+    setCurrentPage(1);
+  };
+
+  const handlePrevPage = () => {
+    setCurrentPage((prev) => Math.max(prev - 1, 1));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+  };
+
+  const fetchAllCafesForMap = useCallback(async () => {
+    const { data, error } = await supabase.from("cafes").select("*"); // Select all cafes without pagination
+
+    if (error) {
+      console.error("Error fetching all cafes for map:", error.message);
+    } else {
+      setAllCafesForMap(data ?? []);
+    }
   }, []);
 
-  const handleCafeSubmission = useCallback(async () => {
-    setIsSubmissionDialogOpen(false);
-    await fetchCafesData(); // Re-fetch all cafes after a new submission
-    toast({
-        title: "Submission Successful",
-        description: "Your cafe submission is being reviewed!",
-        variant: "default",
-    });
-  }, [fetchCafesData, toast]);
+  useEffect(() => {
+    fetchAndFilterCafes();
+    fetchAllCafesForMap();
+  }, [fetchAndFilterCafes, fetchAllCafesForMap]);
 
-  const handleScrollToExplore = useCallback(() => {
-    document
-      .getElementById("cafe-listings-section")
-      ?.scrollIntoView({ behavior: "smooth" });
-  }, []);
-
-  // --- Constants for Map ---
-  const initialMapCenter = useMemo(() => ({ lat: 3.139, lng: 101.6869 }), []); // Kuala Lumpur coordinates
-  const initialZoom = 7; // Zoom level for Malaysia
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   return (
-    <div className="flex flex-col min-h-screen bg-matcham-bg text-foreground max-w-3/4 mx-auto">
-      {/* Map Dialog */}
-      <Dialog open={isMapDialogOpen} onOpenChange={setIsMapDialogOpen}>
-        <DialogContent className="w-[90vw] md:w-[70vw] lg:w-[50vw] min-w-[300px] h-[70vh] md:h-[60vh] lg:h-[50vh] flex flex-col p-0">
-          <DialogHeader className="p-4 border-b flex-shrink-0">
-            <DialogTitle>Matcha Cafe Map</DialogTitle>
-          </DialogHeader>
-          <div className="flex-grow overflow-hidden">
-            {googleMapsApiKey ? (
-              <CafeMap
-                apiKey={googleMapsApiKey}
-                cafes={filteredCafes}
-                onMarkerClick={(cafe) => {
-                  handleCafeSelect(cafe);
-                  setIsMapDialogOpen(false);
-                }}
-                selectedCafe={selectedCafe}
-                initialCenter={initialMapCenter}
-                initialZoom={initialZoom}
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full bg-muted text-destructive-foreground p-4 text-center">
-                <Alert className="max-w-md mx-auto" variant="destructive">
-                  <Terminal className="h-4 w-4" />
-                  <AlertTitle>Map Not Available</AlertTitle>
-                  <AlertDescription>
-                    Map feature is currently unavailable. This might be due to a missing or invalid Google Maps API key.
-                  </AlertDescription>
-                </Alert>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Submission Dialog */}
-      <Dialog
-        open={isSubmissionDialogOpen}
-        onOpenChange={setIsSubmissionDialogOpen}
-      >
-        <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl">
-          <DialogHeader className="pb-3">
-            <DialogTitle>Submit a New Matcha Cafe</DialogTitle>
-          </DialogHeader>
-          <CafeSubmissionForm onFormSubmit={handleCafeSubmission} />
-        </DialogContent>
-      </Dialog>
-
-      {/* --- Header Section --- */}
-      <header className="mx-auto w-full md:w-3/4 p-4 border-b border-border/40 bg-matcham-bg/40 backdrop-blur-sm sticky top-0 z-20 rounded-lg">
+    <>
+      <header className="w-full p-4 border-b border-border/40 bg-matcham-bg/40 backdrop-blur-sm sticky top-0 z-20 rounded-lg">
+        <Banner5
+          title="Hello! Your Malaysian Matcha Journey Begins."
+          description=""
+          buttonText="Discover Now"
+          buttonUrl="/"
+        />
         <div className="w-full flex items-center justify-between">
-          {/* Left: Logo/Back Button */}
           <div className="flex items-center gap-2">
             {selectedCafe ? (
               <Button
@@ -337,7 +259,11 @@ export default function HomePage() {
                 Back to List
               </Button>
             ) : (
-              <Link href="/" className="cursor-pointer hover:opacity-80 transition-opacity" aria-label="Go to homepage">
+              <Link
+                href="/"
+                className="cursor-pointer hover:opacity-80 transition-opacity"
+                aria-label="Go to homepage"
+              >
                 <Image
                   src="/logo_navbar.svg"
                   alt="Matcham Logo"
@@ -348,9 +274,6 @@ export default function HomePage() {
               </Link>
             )}
           </div>
-
-          {/* Right side content: Direct Buttons for desktop, Sheet trigger for mobile */}
-          {/* Desktop Buttons */}
           <div className="hidden md:flex items-center gap-2">
             <Button variant="outline" size="sm" asChild className="shadow-sm">
               <Link href="/about" className="flex items-center">
@@ -373,13 +296,18 @@ export default function HomePage() {
             >
               <Send className="mr-2 h-5 w-5" /> Submit Cafe
             </Button>
+            <ThemeToggle />
           </div>
-
-          {/* Mobile Menu Trigger (Sheet) */}
-          <div className="md:hidden">
+          <div className="md:hidden flex items-center gap-2">
+            <ThemeToggle />
             <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" size="icon" className="shadow-sm" aria-label="Open menu">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="shadow-sm"
+                  aria-label="Open menu"
+                >
                   <Menu className="h-5 w-5" />
                   <span className="sr-only">Open menu</span>
                 </Button>
@@ -389,14 +317,13 @@ export default function HomePage() {
                   <SheetTitle>Menu</SheetTitle>
                 </SheetHeader>
                 <nav className="flex flex-col space-y-3 mt-6">
-                  {/* Changed Link usage to modern Next.js 13+ App Router pattern */}
                   <Button
                     variant="ghost"
                     className="w-full justify-start hover:bg-transparent focus-visible:bg-transparent"
                     onClick={() => setIsMenuOpen(false)}
                     asChild
                   >
-                    <Link href="/about"> {/* Removed legacyBehavior and <a> */}
+                    <Link href="/about">
                       <Info className="w-4 h-4 mr-2" />
                       About
                     </Link>
@@ -430,61 +357,43 @@ export default function HomePage() {
         </div>
       </header>
 
-      <ScrollArea className="flex-1 overflow-y-auto">
-        {/* API Key Warning (if missing) */}
-        {!googleMapsApiKey && (
-          <Alert variant="destructive" className="m-4 shrink-0"> {/* Using 'destructive' as 'warning' might not exist */}
-            <Terminal className="h-4 w-4" />
-            <AlertTitle>Google Maps API Key Warning</AlertTitle>
-            <AlertDescription>
-              A `NEXT_PUBLIC_Maps_API_KEY` is not set in your{" "}
-              <code>.env</code> file. The map feature may not be functional.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Hero Section */}
-        <section className="bg-matcham-bg text-center py-10 md:py-16 px-4">
-          <div className="mx-auto w-full max-w-2xl">
-            <div className="flex justify-center mb-4">
-              <Link href="/" className="cursor-pointer hover:opacity-80 transition-opacity" aria-label="Go to homepage">
-                <Image
-                  src="/logo.svg"
-                  alt="Matcham Logo"
-                  width={300}
-                  height={300}
-                  className="object-contain"
-                />
-              </Link>
-            </div>
-            <p className="text-base md:text-lg text-muted-foreground mb-6 leading-relaxed">
-              Discover exceptional matcha in Malaysia. We're your dedicated guide to the best matcha experiences, not just another directory.
-            </p>
-            <div className="flex flex-col sm:flex-row justify-center items-center gap-3">
-              {/* Temporarily hidden Explore button - uncomment when needed */}
-              {/*
-              <Button
-                size="default"
-                onClick={handleScrollToExplore}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transform hover:scale-105 transition-transform duration-200 ease-in-out w-full sm:w-auto"
-              >
-                <Coffee className="mr-2 h-5 w-5" /> Explore Cafes
-              </Button>
-              */}
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => setIsSubmissionDialogOpen(true)}
-                className="shadow-sm flex items-center"
-              >
-                <Send className="mr-2 h-5 w-5" /> Submit Cafe
-              </Button>
-            </div>
+      {/* Hero Section */}
+      <section className="bg-matcham-bg text-center py-10 md:py-16 px-4">
+        <div className="mx-auto w-full max-w-2xl">
+          <div className="flex justify-center mb-4">
+            <Link
+              href="/"
+              className="cursor-pointer hover:opacity-80 transition-opacity"
+              aria-label="Go to homepage"
+            >
+              <Image
+                src="/logo.svg"
+                alt="Matcham Logo"
+                width={300}
+                height={300}
+                className="object-contain"
+              />
+            </Link>
           </div>
-        </section>
+          <p className="text-base md:text-lg text-muted-foreground mb-6 leading-relaxed">
+            Discover exceptional matcha in Malaysia. We're your dedicated guide
+            to the best matcha experiences, not just another directory.
+          </p>
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-3">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setIsSubmissionDialogOpen(true)}
+              className="shadow-sm flex items-center"
+            >
+              <Send className="mr-2 h-5 w-5" /> Submit Cafe
+            </Button>
+          </div>
+        </div>
+      </section>
 
-        {/* Main Content Area: Cafe Details or List/Filters */}
-        <div id="cafe-listings-section" className="p-4 mx-auto md:w-3/4">
+      <main className="w-full max-w-4xl mx-auto font-sans">
+        <div id="cafe-listings-section" className="p-4 w-full">
           {selectedCafe ? (
             <div className="max-w-xl mx-auto">
               <CafeDetailsCard cafe={selectedCafe} />
@@ -494,7 +403,6 @@ export default function HomePage() {
               {/* Filters Section */}
               <div className="mb-6 p-4 border border-border rounded-lg shadow-sm bg-card max-w-2xl mx-auto">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-                  {/* State Filter */}
                   <div>
                     <Label
                       htmlFor="state-filter"
@@ -522,8 +430,6 @@ export default function HomePage() {
                       </SelectContent>
                     </Select>
                   </div>
-
-                  {/* Halal Status Filter */}
                   <div>
                     <Label
                       htmlFor="halal-filter"
@@ -543,16 +449,16 @@ export default function HomePage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="All">All Halal Statuses</SelectItem>
-                        {halalStatusesList.map((status) => (
-                          <SelectItem key={status.id} value={status.id}>
-                            {status.label}
-                          </SelectItem>
-                        ))}
+                        {halalStatusesList.map(
+                          (status: { id: string; label: string }) => (
+                            <SelectItem key={status.id} value={status.id}>
+                              {status.label}
+                            </SelectItem>
+                          )
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
-
-                  {/* Additional Tags Filter */}
                   <div>
                     <Label className="text-sm font-medium text-card-foreground block mb-1">
                       Additional Tags
@@ -572,17 +478,19 @@ export default function HomePage() {
                       <DropdownMenuContent className="w-64">
                         <DropdownMenuLabel>Select Tags</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        {additionalTagsList.map((tag) => (
-                          <DropdownMenuCheckboxItem
-                            key={tag.id}
-                            checked={selectedTagsFilter.includes(tag.label)}
-                            onCheckedChange={() =>
-                              handleTagFilterChange(tag.label)
-                            }
-                          >
-                            {tag.label}
-                          </DropdownMenuCheckboxItem>
-                        ))}
+                        {additionalTagsList.map(
+                          (tag: { id: string; label: string }) => (
+                            <DropdownMenuCheckboxItem
+                              key={tag.id}
+                              checked={selectedTagsFilter.includes(tag.id)}
+                              onCheckedChange={() =>
+                                handleTagFilterChange(tag.id)
+                              }
+                            >
+                              {tag.label}
+                            </DropdownMenuCheckboxItem>
+                          )
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -600,14 +508,14 @@ export default function HomePage() {
                     {filteredCafes.length} Matcha Cafe
                     {filteredCafes.length === 1 ? "" : "s"} Found
                   </h2>
-                  <p className="text-muted-foreground mb-4 text-sm">
+                  <p className="text-sm text-muted-foreground mb-4 text-sm">
                     Explore matcha cafes across Malaysia. Use the filters above.
                     Click a cafe for details.
                   </p>
 
                   {currentCafesToDisplay.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
-                      {currentCafesToDisplay.map((cafe) => (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {currentCafesToDisplay.map((cafe: Cafe) => (
                         <Card
                           key={cafe.id}
                           onClick={() => handleCafeSelect(cafe)}
@@ -621,18 +529,18 @@ export default function HomePage() {
                           aria-label={`View details for ${cafe.name}`}
                           aria-pressed={selectedCafe?.id === cafe.id}
                         >
-                          <div className="flex flex-col sm:flex-row items-stretch">
-                            <div className="relative w-full h-48 sm:w-48 sm:h-auto flex-shrink-0">
+                          <div className="flex flex-col sm:flex-row  items-center p-2">
+                            <div className="relative w-32 h-32 flex-shrink-0 mr-4">
                               {cafe.logoLink ? (
                                 <Image
                                   src={cafe.logoLink}
                                   alt={`Logo of ${cafe.name}`}
                                   fill={true}
                                   sizes="(max-width: 639px) 100vw, 12rem"
-                                  className="group-hover:scale-105 transition-transform duration-300 ease-in-out rounded-t-lg sm:rounded-t-none sm:rounded-l-lg object-cover"
+                                  className="group-hover:scale-105 transition-transform duration-300 ease-in-out rounded-lg object-contain"
                                 />
                               ) : (
-                                <div className="w-full h-full bg-muted flex items-center justify-center rounded-t-lg sm:rounded-l-lg sm:rounded-t-none">
+                                <div className="w-full h-full bg-muted flex items-center justify-center rounded-lg">
                                   <Leaf className="w-12 h-12 text-muted-foreground" />
                                 </div>
                               )}
@@ -648,12 +556,12 @@ export default function HomePage() {
                                   </p>
                                 </div>
                                 <div className="flex items-center justify-between text-sm mt-auto pt-2">
-                                  <Badge
+                                  {/* <Badge
                                     variant="outline"
                                     className="border-accent text-accent bg-accent/10 px-2 py-1"
                                   >
                                     {cafe.rating} ★
-                                  </Badge>
+                                  </Badge> */}
                                   <span className="text-muted-foreground">
                                     {cafe.state}
                                   </span>
@@ -677,32 +585,65 @@ export default function HomePage() {
                     </div>
                   )}
 
-                  {/* Pagination Controls */}
                   {totalPages > 1 && (
-                    <div className="flex items-center justify-center space-x-4 mt-8 mb-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handlePrevPage}
-                        disabled={currentPage === 1}
-                        className="shadow-sm"
-                      >
-                        <ChevronLeft className="w-4 h-4 mr-2" />
-                        Previous
-                      </Button>
-                      <span className="text-sm text-muted-foreground">
-                        Page {currentPage} of {totalPages}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleNextPage}
-                        disabled={currentPage === totalPages}
-                        className="shadow-sm"
-                      >
-                        Next
-                        <ChevronRight className="w-4 h-4 ml-2" />
-                      </Button>
+                    <div className="flex items-center justify-center space-x-4 mt-8 mb-4 mx-auto">
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious
+                              onClick={handlePrevPage}
+                              disabled={currentPage === 1}
+                            />
+                          </PaginationItem>
+                          {(() => {
+                            const pages = [];
+                            const total = totalPages;
+                            const curr = currentPage;
+
+                            if (total <= 7) {
+                              for (let i = 1; i <= total; i++) {
+                                pages.push(i);
+                              }
+                            } else {
+                              pages.push(1);
+                              if (curr > 4) pages.push("...");
+                              for (
+                                let i = Math.max(2, curr - 1);
+                                i <= Math.min(total - 1, curr + 1);
+                                i++
+                              ) {
+                                if (i === 1 || i === total) continue;
+                                pages.push(i);
+                              }
+                              if (curr < total - 3) pages.push("...");
+                              pages.push(total);
+                            }
+
+                            return pages.map((page, idx) =>
+                              page === "..." ? (
+                                <PaginationEllipsis key={"ellipsis-" + idx} />
+                              ) : (
+                                <PaginationItem key={page}>
+                                  <PaginationLink
+                                    isActive={currentPage === page}
+                                    onClick={() =>
+                                      setCurrentPage(page as number)
+                                    }
+                                  >
+                                    {page}
+                                  </PaginationLink>
+                                </PaginationItem>
+                              )
+                            );
+                          })()}
+                          <PaginationItem>
+                            <PaginationNext
+                              onClick={handleNextPage}
+                              disabled={currentPage === totalPages}
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
                     </div>
                   )}
                 </>
@@ -710,31 +651,39 @@ export default function HomePage() {
             </>
           )}
         </div>
-      </ScrollArea>
+      </main>
+      <Footer />
 
-      {/* Footer (conditional) */}
-      {!selectedCafe && (
-        <footer className="text-center p-4 border-t border-border">
-          <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Matcham by PETAI. All rights
-            reserved.
-          </p>
-          <nav className="mt-2 space-x-4">
-            <Link
-              href="/terms"
-              className="text-xs text-primary hover:underline"
-            >
-              Terms of Service
-            </Link>
-            <Link
-              href="/privacy"
-              className="text-xs text-primary hover:underline"
-            >
-              Privacy Policy
-            </Link>
-          </nav>
-        </footer>
-      )}
-    </div>
+      {/* Submission Dialog */}
+      <Dialog
+        open={isSubmissionDialogOpen}
+        onOpenChange={setIsSubmissionDialogOpen}
+      >
+        <DialogContent className="sm:max-w-[425px] md:max-w-2xl lg:max-w-4xl max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle>Submit New Cafe</DialogTitle>
+            <DialogDescription>
+              Fill in the details for a new matcha cafe submission.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto">
+            <CafeSubmissionForm
+              onFormSubmit={() => setIsSubmissionDialogOpen(false)}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Map Dialog */}
+      <MapDialog
+        open={isMapDialogOpen}
+        onOpenChange={setIsMapDialogOpen}
+        cafes={allCafesForMap}
+        onMarkerClick={setSelectedCafe}
+        selectedCafe={selectedCafe}
+        initialCenter={initialMapCenter}
+        initialZoom={initialZoom}
+      />
+    </>
   );
 }
