@@ -7,10 +7,6 @@
 **Live Site:**  
 👉 [https://www.matcham.my](https://www.matcham.my)
 
-**Link To Vote:**  
-👉 [Google Map Award](https://mapsplatform.google.com/awards/nominees/matcham/)
-
-
 ---
 
 ## 🌿 Project Inspiration
@@ -24,15 +20,15 @@ As passionate matcha enthusiasts, we noticed existing platforms were often outda
 ## 🔧 Project Background
 
 - **Ideation:** Sparked by the frustration of finding scattered, unreliable information on matcha cafes and a desire to spotlight local gems.
-- **Development:** Built using **Next.js**, **Supabase**, and the **Google Maps Platform**. The project went through several iterations to refine UX, filtering, and map behavior.
+- **Development:** Built using **Next.js**, **Supabase**, and the **Leaflet + OpenStreetMap**. The project went through several iterations to refine UX, filtering, and map behavior.
 - **Community Focus:** We actively encourage user submissions and feedback to keep the directory current, curated, and collaborative.
 
 ---
 
-## 🗺️ Google Maps Platform Integration
+## 🗺️ OpenStreetMap Platform Integration
 
 - **Maps JavaScript API:**  
-  The interactive map is central to the platform. Each cafe is marked and clickable for details.
+  The interactive map is central to the platform. Each cafe is marked and clickable for details with Leaflet + OpenStreetMap
   
 - **Geolocation:**  
   Automatically centers the map to the user’s location for easy discovery nearby.
