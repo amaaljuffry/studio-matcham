@@ -114,7 +114,6 @@ export default function Home() {
   const [isSubmissionDialogOpen, setIsSubmissionDialogOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const googleMapsApiKey = process.env.NEXT_PUBLIC_MAPS_API_KEY;
   const initialMapCenter = { lat: 3.139, lng: 101.6869 }; // Kuala Lumpur coordinates
   const initialZoom = 7;
 
@@ -687,6 +686,7 @@ export default function Home() {
         selectedCafe={selectedCafe}
         initialCenter={initialMapCenter}
         initialZoom={initialZoom}
+        useLeaflet={true}
       />
     </>
   );

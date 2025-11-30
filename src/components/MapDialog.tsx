@@ -1,5 +1,8 @@
 "use client";
 
+// Lazy load Leaflet map at the top to avoid initialization error
+const CafeMapLeaflet = React.lazy(() => import('./cafe-map-leaflet'));
+
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -15,6 +18,7 @@ interface MapDialogProps {
   selectedCafe: Cafe | null;
   initialCenter: { lat: number; lng: number };
   initialZoom: number;
+  useLeaflet?: boolean;
 }
 
 export function MapDialog({
@@ -25,9 +29,8 @@ export function MapDialog({
   selectedCafe,
   initialCenter,
   initialZoom,
+  useLeaflet = false,
 }: MapDialogProps) {
-  const googleMapsApiKey = process.env.NEXT_PUBLIC_MAPS_API_KEY;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px] md:max-w-3xl lg:max-w-5xl h-[600px] flex flex-col">
@@ -38,24 +41,28 @@ export function MapDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 w-full p-4 space-y-4">
-          {!googleMapsApiKey && (
-            <Alert variant="destructive" className="shrink-0">
-              <Terminal className="h-4 w-4" />
-              <AlertTitle>Google Maps API Key Warning</AlertTitle>
-              <AlertDescription>
-                A `NEXT_PUBLIC_MAPS_API_KEY` is not set. The map feature may not be functional.
-              </AlertDescription>
-            </Alert>
-          )}
           <div className="w-full h-full rounded-md">
-            <CafeMap
-              apiKey={googleMapsApiKey || ''}
-              cafes={cafes}
-              onMarkerClick={onMarkerClick}
-              selectedCafe={selectedCafe}
-              initialCenter={initialCenter}
-              initialZoom={initialZoom}
-            />
+            {useLeaflet ? (
+              <React.Suspense fallback={<div>Loading map...</div>}>
+                {/** @ts-ignore */}
+                <CafeMapLeaflet
+                  cafes={cafes}
+                  onMarkerClick={onMarkerClick}
+                  selectedCafe={selectedCafe}
+                  initialCenter={initialCenter}
+                  initialZoom={initialZoom}
+                />
+              </React.Suspense>
+            ) : (
+              <CafeMap
+                apiKey={process.env.NEXT_PUBLIC_MAPS_API_KEY || ''}
+                cafes={cafes}
+                onMarkerClick={onMarkerClick}
+                selectedCafe={selectedCafe}
+                initialCenter={initialCenter}
+                initialZoom={initialZoom}
+              />
+            )}
           </div>
         </div>
       </DialogContent>
