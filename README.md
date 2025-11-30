@@ -20,7 +20,7 @@ As passionate matcha enthusiasts, we noticed existing platforms were often outda
 ## 🔧 Project Background
 
 - **Ideation:** Sparked by the frustration of finding scattered, unreliable information on matcha cafes and a desire to spotlight local gems.
-- **Development:** Built using **Next.js**, **Supabase**, and the **Leaflet + OpenStreetMap**. The project went through several iterations to refine UX, filtering, and map behavior.
+- **Development:** Built using **Next.js**, **Supabase** (PostgreSQL (hosted on Supabase)), Backend (Database + Auth + Storage) and the **Leaflet + OpenStreetMap**. The project went through several iterations to refine UX, filtering, and map behavior.
 - **Community Focus:** We actively encourage user submissions and feedback to keep the directory current, curated, and collaborative.
 
 ---
